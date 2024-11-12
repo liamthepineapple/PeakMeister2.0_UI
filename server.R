@@ -2,6 +2,6 @@
 #Initialized 2024-11-12 @McMaster University
 #Department of Chemistry and Chemical Biology 
 
-
-# Run the application 
-shinyApp(ui = ui, server = server)
+server <- function(input, output, session) {
+  
+}

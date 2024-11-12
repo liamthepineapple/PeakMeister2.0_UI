@@ -44,6 +44,15 @@ ui <- dashboardPage(
         tabName = "reporting",
         icon = icon("file-export"))
     )
+  ),
+  dashboardBody(
+    use_waiter(),
+    #About tab content
+    tabItem(
+      tabName = "about",
+      fluidPage(
+        
+      )
   )
   
   

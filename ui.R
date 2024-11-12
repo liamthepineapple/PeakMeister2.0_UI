@@ -5,9 +5,8 @@
 if (!require("pacman", quietly = TRUE)) install.packages("pacman")
 if (!require("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 
-pacman::p_load("shiny","tools","waiter","shinyDirectoryInput","RColorBrewer","shinycssloaders", "shinydashboard","MSnbase", "DT", "shinyalert","ggplot2","plotly","hash","pracma", "tidyverse", "stats", "DescTools", "xcms", "rlang", "ggpubr",
+pacman::p_load("shiny","tools","waiter","shinyFiles","RColorBrewer","shinycssloaders", "shinydashboard","MSnbase", "DT", "shinyalert","ggplot2","plotly","hash","pracma", "tidyverse", "stats", "DescTools", "xcms", "rlang","markdown",
                install = TRUE)
-
 
 title <- "PeakMeister v2.0"
 #title = title 
@@ -30,7 +29,7 @@ ui <- dashboardPage(
       #Paramaters tab -> user supplied mass list and instrument settings
       menuItem("User Supplied Paramaters",
         tabName = "parameters",
-        icon = ("user-cog")),
+        icon = icon("cogs")),
       #Visualization tab for checking electropherograms
       menuItem("Visualization",
         tabName = "processing",
@@ -51,13 +50,14 @@ ui <- dashboardPage(
     tabItem(
       tabName = "about",
       fluidPage(
-        
+        h3("Documentation"),
+        tabsetPanel(
+          tabPanel("Disclaimer", uiOutput("disclaimerContent")),
+          tabPanel("README", uiOutput("readmeContent")),
+          tabPanel("Updates", uiOutput("updatesContent")),
+          tabPanel("License", uiOutput("licenseContent"))
+        )
       )
+    )
   )
-  
-  
-  
-  
-  
-  
 )

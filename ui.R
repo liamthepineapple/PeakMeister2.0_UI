@@ -45,27 +45,14 @@ ui <- dashboardPage(
   ),
   
   dashboardBody(
-    tags$head(
-      tags$meta(name = "viewport", content = "width=device-width, initial-scale=1"),
-      tags$style(HTML("
-        body {
-          margin: 0;
-          padding: 0;
-          width: 100%;
-        }
-        .wrapper {
-          width: 100% !important;
-          max-width: 100% !important;
-        }
-      "))
-    ),
+   
     use_waiter(),
     tabItems(
       # About tab content
       tabItem(
         tabName = "about",
-        fluidRow(
-          column(12, 
+        fluidPage(
+          column(width = 12, 
                  h3("Documentation"),
                  box(
                    title = "Documentation Overview", 
@@ -77,10 +64,18 @@ ui <- dashboardPage(
                               bsCollapsePanel("README", uiOutput("readmeContent")),
                               bsCollapsePanel("Updates", uiOutput("updatesContent")),
                               bsCollapsePanel("License", uiOutput("licenseContent"))
-                   )
+                    )
                  )
-          )
-        )
+              )
+            ),
+      tabItem(
+        tabName = "parameters",
+      )
+        
+        
+        
+        
+        
       )
     )
   )

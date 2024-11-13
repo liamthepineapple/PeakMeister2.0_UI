@@ -5,14 +5,13 @@
 if (!require("pacman", quietly = TRUE)) install.packages("pacman")
 if (!require("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 
-pacman::p_load("shiny","tools","waiter","shinyFiles","RColorBrewer","shinycssloaders", "shinydashboard","MSnbase", "DT", "shinyalert","ggplot2","plotly","hash","pracma", "tidyverse", "stats", "DescTools", "xcms", "rlang","markdown",
+pacman::p_load("shiny","shinyBS", "tools","waiter","shinyFiles","RColorBrewer","shinycssloaders", "shinydashboard","MSnbase", "DT", "shinyalert","ggplot2","plotly","hash","pracma", "tidyverse", "stats", "DescTools", "xcms", "rlang","markdown",
                install = TRUE)
 
 title <- "PeakMeister v2.0"
 #title = title 
 
 #define UI
-
 ui <- dashboardPage(
   skin = "blue",
   
@@ -44,18 +43,43 @@ ui <- dashboardPage(
         icon = icon("file-export"))
     )
   ),
+  
   dashboardBody(
+    tags$head(
+      tags$meta(name = "viewport", content = "width=device-width, initial-scale=1"),
+      tags$style(HTML("
+        body {
+          margin: 0;
+          padding: 0;
+          width: 100%;
+        }
+        .wrapper {
+          width: 100% !important;
+          max-width: 100% !important;
+        }
+      "))
+    ),
     use_waiter(),
-    #About tab content
-    tabItem(
-      tabName = "about",
-      fluidPage(
-        h3("Documentation"),
-        tabsetPanel(
-          tabPanel("Disclaimer", uiOutput("disclaimerContent")),
-          tabPanel("README", uiOutput("readmeContent")),
-          tabPanel("Updates", uiOutput("updatesContent")),
-          tabPanel("License", uiOutput("licenseContent"))
+    tabItems(
+      # About tab content
+      tabItem(
+        tabName = "about",
+        fluidRow(
+          column(12, 
+                 h3("Documentation"),
+                 box(
+                   title = "Documentation Overview", 
+                   status = "primary", 
+                   solidHeader = TRUE,
+                   width = NULL,
+                   bsCollapse(id = "collapseExample", open = "Disclaimer",
+                              bsCollapsePanel("Disclaimer", uiOutput("disclaimerContent")),
+                              bsCollapsePanel("README", uiOutput("readmeContent")),
+                              bsCollapsePanel("Updates", uiOutput("updatesContent")),
+                              bsCollapsePanel("License", uiOutput("licenseContent"))
+                   )
+                 )
+          )
         )
       )
     )

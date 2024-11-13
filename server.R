@@ -6,33 +6,24 @@
 #Initialize server
 server <- function(input, output, session) {
   
-  
-  #About tab information
-  output$readmeContent <- renderUI({
-    content <- readLines("README.md") %>%
-      paste(collapse = "\n")
-    HTML(markdown::markdownToHTML(text = content))
-  })
-  
-  output$licenseContent <- renderUI({
-    content <- readLines("LICENSE.md") %>%
-      paste(collapse = "\n")
-    HTML(markdown::markdownToHTML(text = content))
-  })
+  #Read .md files to populate "about" Tab
+  #Make function to read markdown files
+  read_md_file <- function(file){
+    markdown::markdownToHTML(file) #paste(readLines(file), collapse = "<br>")
+  }
   
   output$disclaimerContent <- renderUI({
-    content <- readLines("DISCLAIMER.md") %>%
-      paste(collapse = "\n")
-    HTML(markdown::markdownToHTML(text = content))
+    HTML(read_md_file("Documentation/DISCLAIMER.md"))
   })
-  
+  output$readmeContent <- renderUI({
+    HTML(read_md_file("Documentation/README.md"))
+  })
   output$updatesContent <- renderUI({
-    content <- readLines("UPDATES.md") %>%
-      paste(collapse = "\n")
-    HTML(markdown::markdownToHTML(text = content))
+    HTML(read_md_file("Documentation/UPDATES.md"))
   })
-  
-  
+  output$licenseContent <- renderUI({
+    HTML(read_md_file("Documentation/LICENSE.md"))
+  })
 }
-  
+   
 

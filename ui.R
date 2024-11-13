@@ -5,7 +5,7 @@
 if (!require("pacman", quietly = TRUE)) install.packages("pacman")
 if (!require("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 
-pacman::p_load("shiny","shinyBS", "tools","waiter","shinyFiles","RColorBrewer","shinycssloaders", "shinydashboard","MSnbase", "DT", "shinyalert","ggplot2","plotly","hash","pracma", "tidyverse", "stats", "DescTools", "xcms", "rlang","markdown",
+pacman::p_load("shiny","shinyBS", "tools","waiter","shinyFiles","RColorBrewer","shinycssloaders", "shinydashboard", "DT", "shinyalert","ggplot2","plotly","hash","pracma", "tidyverse", "stats", "DescTools", "xcms", "rlang","markdown", "openxlsx","readxl",
                install = TRUE)
 
 title <- "PeakMeister v2.0"
@@ -27,7 +27,7 @@ ui <- dashboardPage(
         icon = icon("info-circle")),
       #Paramaters tab -> user supplied mass list and instrument settings
       menuItem("User Supplied Paramaters",
-        tabName = "parameters",
+        tabName = "userparameters",
         icon = icon("cogs")),
       #Visualization tab for checking electropherograms
       menuItem("Visualization",
@@ -59,6 +59,7 @@ ui <- dashboardPage(
                    status = "primary", 
                    solidHeader = TRUE,
                    width = NULL,
+                   #Create collapsible tabs that are populated by the content of the .md files in the Documentation folder
                    bsCollapse(id = "collapseExample", open = "Disclaimer",
                               bsCollapsePanel("Disclaimer", uiOutput("disclaimerContent")),
                               bsCollapsePanel("README", uiOutput("readmeContent")),
@@ -67,9 +68,35 @@ ui <- dashboardPage(
                     )
                  )
               )
-            ),
+            )
+        ),
+      #User supplied inputs tab content 
       tabItem(
-        tabName = "parameters",
+        tabName = "userparameters",
+        tabsetPanel(
+          id = "subtabs",
+          tabPanel("Mass List",
+                   fileInput("massList",
+                             "Upload Mass List and Parameters (Excel)", accept = c(".xlsx")),
+                   tableOutput("massListData")),
+          
+          
+          
+          
+          tabPanel("Reference Mass List",
+                   tableOutput("refMassListData")),
+          
+          
+          
+          tabPanel("Parameters",
+                   fluidRow(
+                     column(6, textInput("paramName", "Parameter Name")),
+                     column(6, numericInput("paramValue", "Parameter Value", value = 0))
+                   ),
+                   actionButton("addParamRow", "Add Parameter"),
+                   DT::dataTableOutput("parametersTable"))
+          
+          
       )
         
         

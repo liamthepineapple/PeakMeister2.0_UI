@@ -222,7 +222,7 @@ server <- function(input, output, session) {
     updateTextInput(session, "plot.format", value = "")
   })
   
-  
+  #Function for saving datatable once user has uploaded their values
   output$downloadData <- downloadHandler(
     filename = function() {
       paste("Mass_List_and_Parameters_", Sys.Date(), ".xlsx", sep = "")

@@ -146,9 +146,9 @@ ui <- dashboardPage(
                    ),
                    #Action button for adding rows
                    actionButton("addParamRow", "Add Parameter")),
-          #Action button for saving manually input data
-          downloadButton("downloadData", "Save Table (.xlsx)")
-          )
+          ),
+        #Action button for saving manually input data
+        downloadButton("downloadData", "Save Table (.xlsx)")
         )
       )
     )

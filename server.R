@@ -222,6 +222,23 @@ server <- function(input, output, session) {
     updateTextInput(session, "plot.format", value = "")
   })
   
+  
+  output$downloadData <- downloadHandler(
+    filename = function() {
+      paste("Mass_List_and_Parameters_", Sys.Date(), ".xlsx", sep = "")
+    },
+    content = function(file) {
+      # Create a list of data frames for each sheet
+      write_xlsx(list(
+        Parameters = parametersData(),
+        Mass_List = massData(),
+        Reference_Mass_List = refMassListData()
+      ), path = file)
+    }
+  )
+  
+  
+  
   #Closing bracket
 }
   

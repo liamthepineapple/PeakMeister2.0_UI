@@ -5,7 +5,7 @@
 
 #Initialize server
 server <- function(input, output, session) {
-  
+  ####1. About tab####
   #Functions for "About" tab page -> reading information from markdown files
   output$disclaimerContent <- renderUI({
     includeMarkdown("Documentation/DISCLAIMER.md")
@@ -19,7 +19,7 @@ server <- function(input, output, session) {
   output$licenseContent <- renderUI({
     includeMarkdown("Documentation/LICENSE.md")
   })
-  #User supplied inputs tab
+####2. User supplied inputs tab####
  #Load data from user supplied Excel file using sheet names
   
   # Initialize reactive values
@@ -221,6 +221,27 @@ server <- function(input, output, session) {
     updateCheckboxInput(session, "apply.smoothing", value = FALSE)
     updateTextInput(session, "plot.format", value = "")
   })
+  #Project information input
+  projectName <- reactiveVal("")
+  projectDescription <- reactiveVal("")
+  projectSupervisor <- reactiveVal("")
+  projectContact <- reactiveVal("")
+  
+  observeEvent(input$saveProjectInfo, {
+    projectName(input$projectName)  # Update project name
+    projectDescription(input$projectDescription)  # Update project description
+    projectSupervisor(input$projectSupervisor)  # Update project supervisor
+    projectContact(input$projectContact)  # Update project contact
+  })
+  
+  output$currentProjectInfo <- renderText({
+    paste("Project Name:", projectName(), 
+          "\nProject Description:", projectDescription(), 
+          "\nProject Supervisor:", projectSupervisor(), 
+          "\nProject Contact:", projectContact())
+  })
+  
+  
   
   #Function for saving datatable once user has uploaded their values
   output$downloadData <- downloadHandler(
@@ -236,8 +257,8 @@ server <- function(input, output, session) {
       ), path = file)
     }
   )
-  
-  
+  ####3. Engine tab####
+  #Where users upload their data
   
   #Closing bracket
 }

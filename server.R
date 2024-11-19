@@ -222,18 +222,20 @@ server <- function(input, output, session) {
     updateTextInput(session, "plot.format", value = "")
   })
   #Project information input
+  #Generate reactive values for information
+  #The idea behind this tab is to automatically generate a metadata file on the project information that is included with the analysis. Makes environment more reproducible and traceable. Additionally, project infomration will be saved into the generated results folder so results are easier to identify/organize on your computer. 
   projectName <- reactiveVal("")
   projectDescription <- reactiveVal("")
   projectSupervisor <- reactiveVal("")
   projectContact <- reactiveVal("")
-  
+  #Update reactive values when someone clicks Save project info)
   observeEvent(input$saveProjectInfo, {
     projectName(input$projectName)  # Update project name
     projectDescription(input$projectDescription)  # Update project description
     projectSupervisor(input$projectSupervisor)  # Update project supervisor
     projectContact(input$projectContact)  # Update project contact
   })
-  
+  #Display output information from reactive variables
   output$currentProjectInfo <- renderText({
     paste("Project Name:", projectName(), 
           "\nProject Description:", projectDescription(), 

@@ -5,7 +5,7 @@
 if (!require("pacman", quietly = TRUE)) install.packages("pacman")
 if (!require("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 
-pacman::p_load("shiny","shinyBS", "tools","waiter","shinyFiles","RColorBrewer","shinycssloaders", "shinydashboard", "DT", "shinyalert","ggplot2","plotly","hash","pracma", "tidyverse", "stats", "DescTools", "xcms", "rlang","markdown", "openxlsx","readxl","writexl",
+pacman::p_load("shiny","shinyBS", "tools","waiter","shinyFiles","RColorBrewer","shinycssloaders", "shinydashboard", "DT", "shinyalert","ggplot2","plotly","hash","pracma", "tidyverse", "stats", "DescTools", "xcms", "rlang","markdown", "openxlsx","readxl","writexl","fontawesome",
                install = TRUE)
 
 title <- "PeakMeister v2.0"
@@ -28,7 +28,11 @@ ui <- dashboardPage(
       #Paramaters tab -> user supplied mass list and instrument settings
       menuItem("User Supplied Paramaters",
         tabName = "userparameters",
-        icon = icon("cogs")),
+        icon = icon("screwdriver-wrench")),
+      #Engine tab -> where the analysis actually occurs and where users input their datafiles 
+      menuItem("Engine",
+               tabName = "engine",
+               icon = icon("heartbeat")),
       #Visualization tab for checking electropherograms
       menuItem("Visualization",
         tabName = "processing",
@@ -146,7 +150,28 @@ ui <- dashboardPage(
                    ),
                    #Action button for adding rows
                    actionButton("addParamRow", "Add Parameter")),
-          ),
+          tabPanel("Project Information",
+                   fluidPage(
+                     tags$style(HTML("pre {
+               font-family: Arial, sans-serif;
+               line-height: 1.5;
+               white-space: pre-wrap; /* Allows wrapping */}")),
+                     column(width = 12,
+                            h3("Project Information"),
+                            fluidRow(
+                              column(3, textInput("projectName", "Project Name (no spaces -> REQUIRED)")),
+                              column(3, textInput("projectDescription", "Project Description")),
+                              column(3, textInput("projectSupervisor", "Project supervisor (no spaces)")),
+                              column(3, textInput("projectContact", "Project Contact (email)"))
+                                    ),
+                            actionButton("saveProjectInfo", "Save Project Info"),
+                            tags$hr(),
+                            h4("Current Project Info"),
+                            verbatimTextOutput("currentProjectInfo")
+                          )
+                        )
+                      )
+                    ),
         #Action button for saving manually input data
         downloadButton("downloadData", "Save Table (.xlsx)")
         )

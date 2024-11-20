@@ -122,7 +122,7 @@ ui <- dashboardPage(
           
           #####4.2 Reference Mass List Subtab#####
           tabPanel("Reference Mass List",
-                   fileInput("refMassListData", "Upload Reference Mass List (Excel)", accept = c(".xlsx")),
+                   fileInput("massList", "Upload Mass List and Paramaters (Excel)", accept = c(".xlsx")),
                    div(style = "overflow-x: auto;",
                    DT::dataTableOutput("refMassListData")),
                    fluidRow(
@@ -153,7 +153,7 @@ ui <- dashboardPage(
                    
           #####4.3 Parameters list subtab#####
           tabPanel("Parameters",
-                   fileInput("parameterList", "Upload paramaters (Excel)", accept = c(".xlsx")),
+                   fileInput("massList", "Upload Mass List and Paramaters (Excel)", accept = c(".xlsx")),
                    div(style = "overflow-x: auto;",
                    DT::dataTableOutput("parametersData")),
                    fluidRow(

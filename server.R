@@ -328,8 +328,8 @@ server <- function(input, output, session) {
       # Create a list of data frames for each sheet
       write_xlsx(list(
         Parameters = parametersData(),
-        Mass_List = massData(),
-        Reference_Mass_List = refMassListData()
+        'Mass List' = massData(),
+        'Reference Mass List' = refMassListData()
       ), path = file)
     }
   )

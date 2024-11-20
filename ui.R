@@ -2,14 +2,15 @@
 #Initialized 2024-11-12 @McMaster University
 #Department of Chemistry and Chemical Biology 
 
+#### 1. Setup ####
 if (!require("pacman", quietly = TRUE)) install.packages("pacman")
 if (!require("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 
 pacman::p_load("shiny","shinyBS", "tools","waiter","shinyFiles","RColorBrewer","shinycssloaders", "shinydashboard", "DT", "shinyalert","ggplot2","plotly","hash","pracma", "tidyverse", "stats", "DescTools", "xcms", "rlang","markdown", "openxlsx","readxl","writexl","fontawesome",
                install = TRUE)
 
+#Title of app
 title <- "PeakMeister v2.0"
-#title = title 
 
 #define UI
 ui <- dashboardPage(
@@ -18,6 +19,7 @@ ui <- dashboardPage(
   dashboardHeader(
     title = title
   ),
+  #### 2. Sidebar Main Tabs ####
   #Set up sidebar and tabs
   dashboardSidebar(
     sidebarMenu(
@@ -47,7 +49,7 @@ ui <- dashboardPage(
         icon = icon("file-export"))
     )
   ),
-  
+  #### 3. About Main Tab Content####
   dashboardBody(
    
     use_waiter(),
@@ -74,7 +76,8 @@ ui <- dashboardPage(
               )
             )
         ),
-      #User supplied inputs tab content 
+      
+      #### 4. User Supplied Inputs Main Tab Content####
       tabItem(
         tabName = "userparameters",
         tabsetPanel(
@@ -82,12 +85,13 @@ ui <- dashboardPage(
           #make subtabs for Mass List, Refererence List, & Paramaters. 
           #Option to either upload and excel file or for you to manually create your own through the app 
           
-          # 1. Mass List 
+          #####4.1. Mass List Subtab##### 
           tabPanel("Mass List",
                    fileInput("massList", "Upload Mass List and Parameters (Excel)", accept = c(".xlsx")),
                    div(style = "overflow-x: auto;",
                    DT::dataTableOutput("massListData")),
                    fluidRow(
+                     #Create input columns for required inputs from excel file
                      column(3, textInput("name", "Name")),
                      column(3, numericInput("mz", "mz", value = 0)),
                      column(3, numericInput("extraction.window.ppm", "Extraction Window (ppm)", value = 0)),
@@ -100,21 +104,29 @@ ui <- dashboardPage(
                      column(3, textInput("smoothing.kernel", "Smoothing Kernel")),
                      column(3, numericInput("smoothing.strength", "Smoothing Strength", value = 0))
                    ),
+                   #For organizational purposes, separate peak migration time inputs from other paramaters
                    tags$strong(h4("Peak Migration Time Inputs")),
+                   #Function for creating a column for each peak. 
+                   #May include option to change the number of peaks in the future. For now, its hardcoded at 13
                    fluidRow(
                      lapply(1:13, function(i) {
                        column(3, numericInput(paste0("peak.", i, ".mt"), paste("Peak", i, "MT"), value = 0))
                      })
                    ),
-                   actionButton("addMassRow", "Add Mass")
-          ),
+                   #Button for adding a row
+                   actionButton("addMassRow", "Add Mass"),
+                   #Button for Deleting a selected row
+                   actionButton("deletemassrow", "Delete Selected Row"), 
+                   #Button for clearing entire table 
+                   actionButton("clearMassList", "Clear All")),
           
-          # 2. Reference Mass List
+          #####4.2 Reference Mass List Subtab#####
           tabPanel("Reference Mass List",
-                   fileInput("refMassList", "Upload Reference Mass List (Excel)", accept = c(".xlsx")),
+                   fileInput("refMassListData", "Upload Reference Mass List (Excel)", accept = c(".xlsx")),
                    div(style = "overflow-x: auto;",
                    DT::dataTableOutput("refMassListData")),
                    fluidRow(
+                     #generate input columns for reference mass list 
                      column(3, textInput("ref.class", "Class")),
                      column(3, numericInput("ref.min.mt.min", "Min MT Min", value = 0)),
                      column(3, numericInput("ref.max.mt.min", "Max MT Min", value = 0)),
@@ -123,22 +135,29 @@ ui <- dashboardPage(
                      column(3, textInput("ref.smoothing.kernel", "Smoothing Kernel")),
                      column(3, numericInput("ref.smoothing.strength", "Smoothing Strength", value = 0))
                    ),
+                   #For organizational purposes, separate peak migration time inputs from other paramaters
                    tags$strong(h4("Peak Migration Time Inputs")),
+                   #Function for creating a column for each peak. 
+                   #May include option to change the number of peaks in the future. For now, its hardcoded at 13
                    fluidRow(
                      lapply(1:13, function(i) {
                        column(3, numericInput(paste0("ref.peak.", i, ".mt"), paste("Peak", i, "MT"), value = 0))
                      })
                    ),
-                   actionButton("addRefMassRow", "Add Reference Mass")
-          ),
+                   #Button for adding a row 
+                   actionButton("addRefMassRow", "Add Reference Mass"),
+                   #Button for deleting reference mass row 
+                   actionButton("deleterefmassrow", "Delete Selected Row"),
+                   #Button for clearing whole table 
+                   actionButton("clearRefMassList", "Clear All")),
                    
-          #Parameters list/tab
+          #####4.3 Parameters list subtab#####
           tabPanel("Parameters",
                    fileInput("parameterList", "Upload paramaters (Excel)", accept = c(".xlsx")),
                    div(style = "overflow-x: auto;",
                    DT::dataTableOutput("parametersData")),
                    fluidRow(
-                     #Create columns for parameters datatable
+                     #Generate input columns for parameters datatable
                      column(3, numericInput("number.of.injections", "number.of.injections", value = 1)),
                      column(3, numericInput("ref.mass.one", "ref.mass.one", value = 0)),
                      column(3, numericInput("ref.mass.two", "ref.mass.two", value = 0)),
@@ -149,13 +168,21 @@ ui <- dashboardPage(
                      column(3, textInput("plot.format", "plot.format"))
                    ),
                    #Action button for adding rows
-                   actionButton("addParamRow", "Add Parameter")),
+                   actionButton("addParamRow", "Add Parameter"),
+                   #Button for deleting row
+                   actionButton("deleteparamrow", "Delete Selected Row"),
+                   #Button for clearing table 
+                   actionButton("clearparam", "Clear All")),
+          
+          #####4.4 Project Information Subtab#####
           tabPanel("Project Information",
                    fluidPage(
+                     #Set HTML formating fonts and line spacing and allow for text wrapping
                      tags$style(HTML("pre {
                font-family: Arial, sans-serif;
-               line-height: 1.5;
+               line-height: 2.0;
                white-space: pre-wrap; /* Allows wrapping */}")),
+                     #Generate input columns 
                      column(width = 12,
                             h3("Project Information"),
                             fluidRow(
@@ -164,7 +191,11 @@ ui <- dashboardPage(
                               column(3, textInput("projectSupervisor", "Project supervisor (no spaces)")),
                               column(3, textInput("projectContact", "Project Contact (email)"))
                                     ),
+                            #Button for saving project info to reactive value -> will be used to generate a metadatafile later on
                             actionButton("saveProjectInfo", "Save Project Info"),
+                            #Button for clearing project information
+                            actionButton("clearproject", "Clear All"),
+                            #text output for project info 
                             tags$hr(),
                             h4("Current Project Info"),
                             verbatimTextOutput("currentProjectInfo")

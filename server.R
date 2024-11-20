@@ -43,13 +43,16 @@ server <- function(input, output, session) {
   
   #Reactive values for reference mass list
   refMassListData <- reactiveVal(data.frame(
-    ref.class = character(),
-    ref.min.mt.min = numeric(),
-    ref.max.mt.min = numeric(),
+    name = character(),
+    mz = numeric(),
+    extraction.window.ppm = numeric(),
+    class = character(),
+    min.mt.min = numeric(),
+    max.mt.min = numeric(),
     peak.fwhm.tolerance.multiplier = numeric(),
     peak.space.tolerance.percent = numeric(),
-    ref.smoothing.kernel = character(),
-    ref.smoothing.strength = numeric(),
+    smoothing.kernel = character(),
+    smoothing.strength = numeric(),
     stringsAsFactors = FALSE
   ))
   
@@ -175,14 +178,17 @@ server <- function(input, output, session) {
   #####2.4 Manual Reference Mass Input#####
   observeEvent(input$addRefMassRow, {
     newRow <- data.frame(
-      #Input values for table 
-      ref.class = input$ref.class,
-      ref.min.mt.min = input$ref.min.mt.min,
-      ref.max.mt.min = input$ref.max.mt.min,
-      peak.fwhm.tolerance.multiplier = input$ref.peak.fwhm.tolerance.multiplier,
-      peak.space.tolerance.percent = input$ref.peak.space.tolerance.percent,
-      ref.smoothing.kernel = input$ref.smoothing.kernel,
-      ref.smoothing.strength = input$ref.smoothing.strength,
+      #Input values for table
+      name = input$name,
+      mz = input$mz,
+      extraction.window.ppm = input$extraction.window.ppm,
+      class = input$class,
+      min.mt.min = input$min.mt.min,
+      max.mt.min = input$max.mt.min,
+      peak.fwhm.tolerance.multiplier = input$peak.fwhm.tolerance.multiplier,
+      peak.space.tolerance.percent = input$peak.space.tolerance.percent,
+      smoothing.kernel = input$smoothing.kernel,
+      smoothing.strength = input$smoothing.strength,
       peak.1.mt = input$peak.1.mt,
       peak.2.mt = input$peak.2.mt,
       peak.3.mt = input$peak.3.mt,
@@ -203,13 +209,16 @@ server <- function(input, output, session) {
     refMassListData(updatedData)
     
     #Clear inputs after adding
-    updateTextInput(session, "ref.class", value = "")
-    updateNumericInput(session, "ref.min.mt.min", value = 0)
-    updateNumericInput(session, "ref.max.mt.min", value = 0)
-    updateNumericInput(session, "ref.peak.fwhm.tolerance.multiplier", value = 0)
-    updateNumericInput(session, "ref.peak.space.tolerance.percent", value = 0)
-    updateTextInput(session, "ref.smoothing.kernel", value = "")
-    updateNumericInput(session, "ref.smoothing.strength", value = 0)
+    updateTextInput(session, "name", value = "")
+    updateNumericInput(session, "mz", value = 0)
+    updateNumericInput(session, "extraction.window.ppm", value = 0)
+    updateTextInput(session, "class", value = "")
+    updateNumericInput(session, "min.mt.min", value = 0)
+    updateNumericInput(session, "max.mt.min", value = 0)
+    updateNumericInput(session, "peak.fwhm.tolerance.multiplier", value = 0)
+    updateNumericInput(session, "peak.space.tolerance.percent", value = 0)
+    updateTextInput(session, "smoothing.kernel", value = "")
+    updateNumericInput(session, "smoothing.strength", value = 0)
     
     # Clear peaks inputs
     lapply(1:13, function(i) {

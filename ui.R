@@ -126,14 +126,17 @@ ui <- dashboardPage(
                    div(style = "overflow-x: auto;",
                    DT::dataTableOutput("refMassListData")),
                    fluidRow(
-                     #generate input columns for reference mass list 
-                     column(3, textInput("ref.class", "Class")),
-                     column(3, numericInput("ref.min.mt.min", "Min MT Min", value = 0)),
-                     column(3, numericInput("ref.max.mt.min", "Max MT Min", value = 0)),
-                     column(3, numericInput("ref.peak.fwhm.tolerance.multiplier", "Peak FWHM Tolerance Multiplier", value = 0)),
-                     column(3, numericInput("ref.peak.space.tolerance.percent", "Peak Space Tolerance (%)", value = 0)),
-                     column(3, textInput("ref.smoothing.kernel", "Smoothing Kernel")),
-                     column(3, numericInput("ref.smoothing.strength", "Smoothing Strength", value = 0))
+                     #generate input columns for reference mass list
+                     column(3, textInput("name", "Name of Reference Mass")),
+                     column(3, numericInput("mz", "mz (reference mass)", value = 0)),
+                     column(3, numericInput("extraction.window.ppm", "Extraction Window (ppm)", value = 0)),
+                     column(3, textInput("class", "Class")),
+                     column(3, numericInput("min.mt.min", "Min MT Min", value = 0)),
+                     column(3, numericInput("max.mt.min", "Max MT Min", value = 0)),
+                     column(3, numericInput("peak.fwhm.tolerance.multiplier", "Peak FWHM Tolerance Multiplier", value = 0)),
+                     column(3, numericInput("peak.space.tolerance.percent", "Peak Space Tolerance (%)", value = 0)),
+                     column(3, textInput("smoothing.kernel", "Smoothing Kernel")),
+                     column(3, numericInput("smoothing.strength", "Smoothing Strength", value = 0))
                    ),
                    #For organizational purposes, separate peak migration time inputs from other paramaters
                    tags$strong(h4("Peak Migration Time Inputs")),

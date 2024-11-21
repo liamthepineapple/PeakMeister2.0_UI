@@ -379,24 +379,21 @@ server <- function(input, output, session){
   #####3.2 Initialze Run Button - Main Content######
   #Initialize run button - main engine content 
   observeEvent(input$initialize, {
-    req(uploadedmzML())  # Ensure files are uploaded
+    req(uploadedmzML()) 
     
-    # Step 1: Generate a results folder that will not overwrite previous results folders
+    #Generate a results folder that will not overwrite previous results folders
     count <- 1
     file_name <- paste("Results", Sys.Date(), sep = " ")
-    
     while (dir.exists(file_name)) {
       count <- count + 1
-      file_name <- paste("Results", Sys.Date(), count, sep = " ")
-    }
-    
+      file_name <- paste("Results", Sys.Date(), count, sep = " ")}
     dir.create(path = file_name, showWarnings = FALSE)
     
     #Create a "Plots" folder to store figures
     dir.create(path = file.path(file_name, "Plots"), showWarnings = FALSE)
     
     #Create a vector of metabolite and internal standard names
-    name_vec <- c(refMassListData()$name, massData()$name)  # Use reactive values
+    name_vec <- c(refMassListData()$name, massData()$name)
     
     #Check for duplicate metabolite and internal standard names
     if (sum(duplicated(name_vec)) > 0) {
@@ -518,7 +515,7 @@ server <- function(input, output, session){
                    right_is = is_right_vec,
                    description = summary_vec,
                    mi_df[2:ncol(mi_df)])
-    ## User Supplied MTIs ----
+    #####3.4 User Supplied MTIs#####
     
     if (parametersData()$Manual.Indexes == "Yes") {
       if (file.exists("User Supplied Migration Indexes.csv")) {
@@ -544,16 +541,40 @@ server <- function(input, output, session){
           mi_df[row, 2:ncol(mi_df)] <- user_mti_df[i, 2:ncol(user_mti_df)]
         }
       }
-      # Proceed as if everything is fine if the file is not present
     }
     
-   
     # Write the migration index summary to a CSV file
     write.csv(mi_df, 
               file.path(file_name, "Migration Index Summary.csv"), 
               row.names = FALSE)
     
-  
+    #####3.5 Data File Analysis#####
+    for (d in 1:nrow(uploadedmzML())) {
+      print(paste(d, ". ", "Analyzing Data File: ", uploadedmzML()$FileName[d], sep = ""))
+      
+      # Make a copy of the data file as data will be written directly to this file during mass calibration
+      file <- gsub(".mzML", "", uploadedmzML()$FilePath[d])
+      file.copy(uploadedmzML()$FilePath[d], to = paste(file, "temp.mzML", sep = "_"))
+      
+      # Read copied data file
+      print("Reading Data File")
+      run_data <- readMSData(
+        file = paste(file, "temp.mzML", sep = "_"),
+        pdata = NULL,
+        msLevel = 1,
+        verbose = isMSnbaseVerbose(),
+        centroided. = FALSE,
+        smoothed. = FALSE,
+        cache. = 0,
+        mode = "inMemory"
+      )
+      
+      print("File Reading Complete")
+      
+      # Unlock "assayData" environment 
+      env_binding_unlock(run_data@assayData)
+    }
+    #####3.6 Mass Calibration#####
     
     
       

@@ -208,7 +208,21 @@ ui <- dashboardPage(
                     ),
         #Action button for saving manually input data
         downloadButton("downloadData", "Save Table (.xlsx)")
+        ),
+      
+      ####5. Engine####
+      tabItem(
+        tabName = "engine",
+        tabsetPanel(
+          id = "Setup",
+          fluidRow(
+            column(6,
+                   fileInput("mzMLFiles", "Upload .mzML Files", accept = c(".mzML"), multiple = TRUE),
+                   DT::dataTableOutput("fileTable")
+            )
+          )
         )
       )
     )
-)
+  )
+)#Closing Bracket for UI dashboiard

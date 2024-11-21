@@ -1,10 +1,14 @@
 #PeakMeister2.0_UI was written by Erick Helmeczi and Liam Surry 
 #Initialized 2024-11-12 @McMaster University
-#Department of Chemistry and Chemical Biology 
+#Department of Chemistry and Chemical Biology
+
+#Set maximum file upload size. 
+# Set maximum file upload size to 150 GB
+options(shiny.maxRequestSize = 150 * 1024^3)
 
 
 #Initialize server
-server <- function(input, output, session) {
+server <- function(input, output, session){ 
   
   ####1. About tab####
   #Functions for "About" tab page -> reading information from markdown files
@@ -344,7 +348,34 @@ server <- function(input, output, session) {
   )
   
   ####3. Engine tab####
-  #Where users upload their data
+  #####3.1 mzML file upload#####
+  
+  # Initialize reactive value to store uploaded files
+  uploadedmzML <- reactiveVal(data.frame(FileName = character(), FilePath = character(), stringsAsFactors = FALSE))
+  
+  observeEvent(input$mzMLFiles, {
+    req(input$mzMLFiles)  # Ensure files are uploaded
+    
+    # Get the names and paths of the uploaded files
+    newFiles <- data.frame(
+      FileName = input$mzMLFiles$name,
+      FilePath = input$mzMLFiles$datapath,
+      stringsAsFactors = FALSE
+    )
+    
+    # Update the reactive value with the new files
+    updatedFiles <- bind_rows(uploadedmzML(), newFiles)  # Use bind_rows for efficiency
+    uploadedmzML(updatedFiles)
+    
+    # Create vectors for data file directories and names
+    data_files <- uploadedmzML()$FilePath
+    data_file_names <- uploadedmzML()$FileName
+    
+    # Render the data table automatically when files are uploaded
+    output$fileTable <- DT::renderDataTable({
+      DT::datatable(uploadedmzML(), options = list(pageLength = 5))
+    })
+  })
   
   #Closing bracket
 }

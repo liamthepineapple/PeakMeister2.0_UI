@@ -168,7 +168,8 @@ ui <- dashboardPage(
                      column(3, numericInput("ref.mass.minimum.counts", "ref.mass.minimum.counts", value = 0)),
                      column(3, selectInput("apply.mass.calibration", "apply.mass.calibration", choices = c("Yes", "No"))),
                      column(3, selectInput("apply.smoothing", "apply.smoothing", choices = c("Yes", "No"))),
-                     column(3, textInput("plot.format", "plot.format"))
+                     column(3, textInput("plot.format", "plot.format")),
+                     column(3,selectInput("Manual.Indexes","Manual.Indexes", choices = c("Yes", "No")))
                    ),
                    #Action button for adding rows
                    actionButton("addParamRow", "Add Parameter"),
@@ -219,9 +220,10 @@ ui <- dashboardPage(
             column(6,
                    fileInput("mzMLFiles", "Upload .mzML Files", accept = c(".mzML"), multiple = TRUE),
                    DT::dataTableOutput("fileTable")
+                   
             )
           )
-        )
+        ),actionButton("initialize", "Initialize Run", style = "color: black; background-color:red;")
       )
     )
   )

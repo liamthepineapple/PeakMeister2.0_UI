@@ -70,6 +70,7 @@ server <- function(input, output, session){
     apply.mass.calibration = character(),
     apply.smoothing = character(),
     plot.format = character(),
+    Manual.Indexes = character(),
     stringsAsFactors = FALSE
   ))
   
@@ -105,8 +106,6 @@ server <- function(input, output, session){
       massData(data.frame())  
       refMassListData(data.frame())  
       parametersData(data.frame())
-      
-      showNotification("No file uploaded. You can enter data manually.", type = "info")
     }
   })
   
@@ -258,6 +257,7 @@ server <- function(input, output, session){
       apply.mass.calibration = input$apply.mass.calibration,
       apply.smoothing = input$apply.smoothing,
       plot.format = input$plot.format,
+      Manual.Indexes = input$Manual.Indexes,
       stringsAsFactors = FALSE
     )
     #Update dataset
@@ -273,6 +273,7 @@ server <- function(input, output, session){
     updateCheckboxInput(session, "apply.mass.calibration", value = FALSE)
     updateCheckboxInput(session, "apply.smoothing", value = FALSE)
     updateTextInput(session, "plot.format", value = "")
+    updateCheckboxInput(session, "Manual.Indexes", value = FALSE)
   })
   
   # Deleting selected parameter row
@@ -349,22 +350,20 @@ server <- function(input, output, session){
   
   ####3. Engine tab####
   #####3.1 mzML file upload#####
-  
   # Initialize reactive value to store uploaded files
   uploadedmzML <- reactiveVal(data.frame(FileName = character(), FilePath = character(), stringsAsFactors = FALSE))
   
   observeEvent(input$mzMLFiles, {
-    req(input$mzMLFiles)  # Ensure files are uploaded
+    req(input$mzMLFiles)  
     
     # Get the names and paths of the uploaded files
     newFiles <- data.frame(
       FileName = input$mzMLFiles$name,
       FilePath = input$mzMLFiles$datapath,
-      stringsAsFactors = FALSE
-    )
+      stringsAsFactors = FALSE)
     
     # Update the reactive value with the new files
-    updatedFiles <- bind_rows(uploadedmzML(), newFiles)  # Use bind_rows for efficiency
+    updatedFiles <- bind_rows(uploadedmzML(), newFiles) 
     uploadedmzML(updatedFiles)
     
     # Create vectors for data file directories and names
@@ -376,6 +375,190 @@ server <- function(input, output, session){
       DT::datatable(uploadedmzML(), options = list(pageLength = 5))
     })
   })
+  
+  #####3.2 Initialze Run Button - Main Content######
+  #Initialize run button - main engine content 
+  observeEvent(input$initialize, {
+    req(uploadedmzML())  # Ensure files are uploaded
+    
+    # Step 1: Generate a results folder that will not overwrite previous results folders
+    count <- 1
+    file_name <- paste("Results", Sys.Date(), sep = " ")
+    
+    while (dir.exists(file_name)) {
+      count <- count + 1
+      file_name <- paste("Results", Sys.Date(), count, sep = " ")
+    }
+    
+    dir.create(path = file_name, showWarnings = FALSE)
+    
+    #Create a "Plots" folder to store figures
+    dir.create(path = file.path(file_name, "Plots"), showWarnings = FALSE)
+    
+    #Create a vector of metabolite and internal standard names
+    name_vec <- c(refMassListData()$name, massData()$name)  # Use reactive values
+    
+    #Check for duplicate metabolite and internal standard names
+    if (sum(duplicated(name_vec)) > 0) {
+      stop("Mass List and Parameters contain duplicated metabolite or internal standard names.")
+    }
+    
+    #Determine the number of metabolites and internal standards
+    num_of_metabolites <- nrow(massData())
+    num_of_is <- nrow(refMassListData())
+    
+    #Get the number of injections
+    num_of_injections <- parametersData()$number.of.injections[1]
+    
+    #Create metabolite sub-folders if plotting is set to "Metabolite"
+    if (parametersData()$plot.format == "Metabolite") {
+      for (i in 1:length(name_vec)) {
+        dir.create(path = file.path(file_name, "Plots", name_vec[i]), showWarnings = FALSE)
+      }
+    }
+    
+    #Generate an Excel file of the mass list and parameters
+    excel_file_path <- file.path(file_name, paste("Mass List and Parameters", Sys.Date(), ".xlsx", sep = ""))
+    
+    write_xlsx(list(
+      Parameters = parametersData(),
+      'Mass List' = massData(),
+      'Reference Mass List' = refMassListData()
+    ), path = excel_file_path)
+    
+    #####3.3 Migration Index Calculation#####
+    
+    # Summarize user supplied migration time data
+    metabolites_mt_df <- data.frame(name = massData()$name, massData()[, c((ncol(massData()) - num_of_injections + 1):ncol(massData()))])
+    is_mt_df <- subset(refMassListData(), refMassListData()$class == "Reference")
+    is_mt_df <- data.frame(name = is_mt_df$name, is_mt_df[, c((ncol(is_mt_df) - num_of_injections + 1):ncol(is_mt_df))])
+    
+    # Determine IS on the left
+    is_left_vec <- character(num_of_metabolites)
+    
+    for (m in 1:nrow(metabolites_mt_df)) {
+      is_temp <- (metabolites_mt_df[m, 2] - (is_mt_df[, 2]))
+      is_temp <- set_names(is_temp, is_mt_df$name)
+      is_temp <- is_temp[which(sign(is_temp) == 1 | sign(is_temp) == 0)] %>%
+        which.min() %>%
+        names()
+      
+      if (length(is_temp) == 0) {
+        is_temp <- "none"
+      }
+      
+      is_left_vec[m] <- is_temp
+    }
+    
+    # Determine IS on the right
+    is_right_vec <- character(num_of_metabolites)
+    
+    for (m in 1:nrow(metabolites_mt_df)) {
+      is_temp <- (metabolites_mt_df[m, 2] - (is_mt_df[, 2]))
+      is_temp <- set_names(is_temp, is_mt_df$name)
+      is_temp <- is_temp[which(sign(is_temp) == -1 | sign(is_temp) == 0)] %>%
+        which.max() %>%
+        names()
+      
+      if (length(is_temp) == 0) {
+        is_temp <- "none"
+      }
+      
+      is_right_vec[m] <- is_temp
+    }
+    
+    # Compute migration index
+    mi_df <- matrix(NA, ncol = (num_of_injections + 1), nrow = nrow(metabolites_mt_df)) %>%
+      as.data.frame()
+    mi_df[, 1] <- metabolites_mt_df$name
+    
+    summary_vec <- character(nrow(metabolites_mt_df))
+    
+    for (m in 1:nrow(metabolites_mt_df)) {
+      for (i in 2:(num_of_injections + 1)) {
+        left <- is_left_vec[m]
+        right <- is_right_vec[m]
+        
+        if (left == "none") {
+          mi_df[m, i] <- metabolites_mt_df[m, i] / is_mt_df[which(is_mt_df$name == right), i]
+          summary_vec[m] <- right
+          next
+        }
+        
+        if (right == "none") {
+          mi_df[m, i] <- metabolites_mt_df[m, i] / is_mt_df[which(is_mt_df$name == left), i]
+          summary_vec[m] <- left
+          next
+        }
+        
+        if (metabolites_mt_df[m, 2] / is_mt_df[which(is_mt_df$name == left), 2] < 1.01) {
+          mi_df[m, i] <- metabolites_mt_df[m, i] / is_mt_df[which(is_mt_df$name == left), i]
+          summary_vec[m] <- left
+          is_right_vec[m] <- "none"
+          next
+        }
+        
+        if (metabolites_mt_df[m, 2] / is_mt_df[which(is_mt_df$name == right), 2] > 0.99) {
+          mi_df[m, i] <- metabolites_mt_df[m, i] / is_mt_df[which(is_mt_df$name == right), i]
+          summary_vec[m] <- right
+          is_left_vec[m] <- "none"
+          next
+        }
+        
+        mi_df[m, i] <- (metabolites_mt_df[m, i] - is_mt_df[which(is_mt_df$name == left), i]) / 
+          (is_mt_df[which(is_mt_df$name == right), i] - is_mt_df[which(is_mt_df$name == left), i])
+        summary_vec[m] <- "mi"
+      }
+    }
+    
+    # Store results in one data frame
+    colnames(mi_df)[2:ncol(mi_df)] <- c(1:num_of_injections)
+    mi_df <- cbind(name = massData()$name,
+                   left_is = is_left_vec,
+                   right_is = is_right_vec,
+                   description = summary_vec,
+                   mi_df[2:ncol(mi_df)])
+    ## User Supplied MTIs ----
+    
+    if (parametersData()$Manual.Indexes == "Yes") {
+      if (file.exists("User Supplied Migration Indexes.csv")) {
+        user_mti_df <- read.csv("User Supplied Migration Indexes.csv")
+        
+        names <- unique(c(user_mti_df$name, user_mti_df$left_is, user_mti_df$right_is, user_mti_df$description))
+        
+        if (all(names %in% c(name_vec, "mi", "none")) == FALSE) {
+          stop("Names detected in User Supplied Migration Indexes.csv not found in Mass List and Parameters.")
+        }
+        
+        if (ncol(user_mti_df) != (4 + num_of_injections)) {
+          stop(paste("Make sure User Supplied Migration Indexes.csv contains migration time indexes for all", num_of_injections, "injections."))
+        }
+        
+        for (i in 1:nrow(user_mti_df)) {
+          row <- which(mi_df$name == user_mti_df$name[i])
+          
+          if (length(row) == 0) {
+            stop(paste("Metabolite", user_mti_df$name[i], "from User Supplied Migration Indexes.csv is not in Mass List and Parameters."))
+          }
+          
+          mi_df[row, 2:ncol(mi_df)] <- user_mti_df[i, 2:ncol(user_mti_df)]
+        }
+      }
+      # Proceed as if everything is fine if the file is not present
+    }
+    
+   
+    # Write the migration index summary to a CSV file
+    write.csv(mi_df, 
+              file.path(file_name, "Migration Index Summary.csv"), 
+              row.names = FALSE)
+    
+  
+    
+    
+      
+  })#End of main button
+  
   
   #Closing bracket
 }

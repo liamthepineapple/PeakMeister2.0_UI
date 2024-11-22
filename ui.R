@@ -6,7 +6,7 @@
 if (!require("pacman", quietly = TRUE)) install.packages("pacman")
 if (!require("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 
-pacman::p_load("shiny","shinyBS", "tools","waiter","shinyFiles","RColorBrewer","shinycssloaders", "shinydashboard", "DT", "shinyalert","ggplot2","plotly","hash","pracma", "tidyverse", "stats", "DescTools", "xcms", "rlang","markdown", "openxlsx","readxl","writexl","fontawesome",
+pacman::p_load("shiny","shinyBS", "tools","waiter","shinyFiles","RColorBrewer","shinycssloaders", "shinydashboard", "DT", "shinyalert","ggplot2","ggpubr", "plotly","hash","pracma", "tidyverse", "stats", "DescTools", "xcms", "rlang","markdown", "openxlsx","readxl","writexl","fontawesome",
                install = TRUE)
 
 #Title of app
@@ -178,7 +178,7 @@ ui <- dashboardPage(
                    #Button for clearing table 
                    actionButton("clearparam", "Clear All")),
           
-          #####4.4 Project Information Subtab#####
+          #####4.4 Project Information Subt ab#####
           tabPanel("Project Information",
                    fluidPage(
                      #Set HTML formating fonts and line spacing and allow for text wrapping

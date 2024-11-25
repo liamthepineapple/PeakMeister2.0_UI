@@ -551,8 +551,6 @@ server <- function(input, output, session){
     # Create vectors for data file directories and names
     data_files <- uploadedmzML()$FilePath
     data_file_names <- uploadedmzML()$FileName
-
-    # 3. Read Data File ----
     
     for (d in 1:length(data_files)){
       
@@ -585,7 +583,7 @@ server <- function(input, output, session){
       
       env_binding_unlock(run_data@assayData)
       
-      # 4. Perform Mass Calibration ----
+      #####3.6 Perform Mass Calibration#####
       
       #This is a stupid line but not sure way around it currently
       mass_df <- massData()
@@ -698,14 +696,14 @@ server <- function(input, output, session){
               next
             }
             
-            ## Develop correction model ----
+            #######3.6.1 Develop correction model######
             
             model_data <- data.frame("x" = c(cal_para_1[1], cal_para_2[1]),
                                      "y" = c(cal_para_1[2], cal_para_2[2]))
             
             model <- lm(y ~ x, model_data)
             
-            ## Apply correction model----
+            ######3.6.2 Apply correction model######
             
             correction_vector <- c(model[["coefficients"]][["x"]] * spectrum$mz) + model[["coefficients"]][["(Intercept)"]]
             
@@ -725,7 +723,6 @@ server <- function(input, output, session){
       print("Mass Calibration Complete")
       
      #####3.7 Extract Electropherograms#####
-      # 5. Extract Electropherograms ----
       
       print("Extracting Electropherograms")
       
@@ -762,7 +759,7 @@ server <- function(input, output, session){
       
       print("Extraction Complete")
       
-      # 6. Smooth Intensity Vectors ----
+      #####3.8 Smooth Intensity Vectors#####
       
       # Check if mass calibration should be applied
       
@@ -806,11 +803,11 @@ server <- function(input, output, session){
       
       print("Electropherograms Smoothing Complete")
       
-      # 7. Internal Standard Peak Detection, Integration, and Filtering ----
+      #####3.9 Internal Standard Peak Detection, Integration, and Filtering#####
       
       print("Performing Peak Picking and Filtering for Internal Standards")
       
-      ## Peak detection ---- 
+      ######3.9.1 Peak detection###### 
       
       is_peaks_df <- local({
         
@@ -854,13 +851,13 @@ server <- function(input, output, session){
                                 apex_intensity,
                                 end_intensity)
           
-          ## Migration time filtering ----
+          ######3.9.2 Migration time filtering######
           
           # Filter peaks that are outside migration time limits
           
           peak_df <- subset(peak_df, peak_df$apex >= is_df$min.mt.min[s] * 60 & peak_df$apex <= is_df$max.mt.min[s] * 60)
           
-          ## Integrate peaks ----
+          ######3.9.3 Integrate peaks######
           
           peak_area_vector = c(1:nrow(peak_df))
           
@@ -904,7 +901,7 @@ server <- function(input, output, session){
           
           peak_df_fill <- peak_df
           
-          ## FWHM filtering ----
+          ######3.9.4 FWHM filtering######
           
           # Do not not apply the FWHM filter if the number of injections is equal to 1
           
@@ -951,7 +948,7 @@ server <- function(input, output, session){
           
           peak_df <- subset(peak_df, peak_df[,7] >= cut_off)
           
-          ## Peak space filtering ----
+          ######3.9.5 Peak space filtering######
           
           # Do not apply peak space filtering if the number of injections is equal to 1
           
@@ -978,7 +975,7 @@ server <- function(input, output, session){
               bad_space <- NA
             }
             
-            ## Scenario 1 ----
+            ######3.9.6 Scenario 1######
             # Only one bad space is detected
             
             if(length(bad_space) == 1 & is.na(bad_space[1]) == FALSE){
@@ -1056,7 +1053,7 @@ server <- function(input, output, session){
               }
             }
             
-            ## Scenario 2 ---- 
+            ######3.9.7 Scenario 2###### 
             #Two or three bad spaces are detected 
             
             if(length(bad_space) == 2 | length(bad_space) == 3){
@@ -1132,11 +1129,11 @@ server <- function(input, output, session){
       
       print("Peak Picking and Filtering for Internal Standards Complete")
       
-      # 8. Metabolite  Peak Detection, Integration, and Filtering ----
+      #####3.10 Metabolite  Peak Detection, Integration, and Filtering#####
       
       print("Performing Peak Picking and Filtering for Analytes")
       
-      ## Peak detection ---- 
+      ######3.10.1 Peak detection###### 
       
       metabolite_peaks_df <- local ({
         
@@ -1186,7 +1183,7 @@ server <- function(input, output, session){
                                 apex_intensity,
                                 end_intensity)
           
-          ## Filter peaks by peak width ----
+          ######3.10.2 Filter peaks by peak width######
           
           # Define a minimum peak width cut off in seconds. Remove peaks with a width <= cutoff
           
@@ -1194,7 +1191,7 @@ server <- function(input, output, session){
           
           peak_df <- subset(peak_df, (peak_df$end - peak_df$start) >= min_width_cut_off)
           
-          ## Integrate peaks ----
+          ######3.10.3 Integrate peaks######
           
           peak_area_vector = c(1:nrow(peak_df))
           
@@ -1232,9 +1229,9 @@ server <- function(input, output, session){
                                  paste(name_vec[m], "end_intensity", sep = "."),
                                  paste(name_vec[m], "peak.area", sep = "."))
           
-          ## Filter peaks ----
+          ######3.10.4 Filter peaks######
           
-          ### Filter peaks based on smallest mt difference ----
+          # Filter peaks based on smallest mt difference 
           
           # Determine the expected migration times of the metabolites
           
@@ -1306,7 +1303,7 @@ server <- function(input, output, session){
             }
           }
           
-          ### Filter peaks outside of run time limits ----
+          ######3.10.5 Filter peaks outside of run time limits######
           
           # Set a place holder for peaks where the expected migration time > total run time
           
@@ -1333,7 +1330,7 @@ server <- function(input, output, session){
           }
           
           
-          ### Filter duplicated peaks ----
+          ######3.10.6 Filter duplicated peaks######
           
           # If the same peak is assigned to multiple injection numbers, reapply rmt filter with more austere rmt tolerances
           # New rmt tolerance will be the original / count, which starts at 2 and increases by 1 each iteration
@@ -1408,7 +1405,7 @@ server <- function(input, output, session){
             
           }
           
-          ### Filter using peak spaces ----
+          ######3.10.7 Filter using peak spaces######
           
           # Do not apply peak space filtering if the number of injections is equal to 1
           
@@ -1562,7 +1559,7 @@ server <- function(input, output, session){
         
       })
       
-      ### Filter peaks below LOD ----
+      ######3.10.8 Filter peaks below LOD######
       
       # Build a data frame to store comments for each metabolite peak
       
@@ -1616,7 +1613,7 @@ server <- function(input, output, session){
         
       }
       
-      ### Filter interfered peaks ----
+      ######3.10.9 Filter interfered peaks######
       
       # Build an interference data frame since some are metabolites and some are internal standards
       
@@ -1684,7 +1681,7 @@ server <- function(input, output, session){
       
       print("Peak Picking and Filtering for Analytes Complete")
       
-      # 9. Plotting ----
+      #####3.11 Plotting#####
       
       print("Plotting Electropherograms")
       
@@ -1695,7 +1692,7 @@ server <- function(input, output, session){
       
       for (n in 1:length(name_vec)){
         
-        ## Create annotation data frame ----
+        ######3.11.1 Create annotation data frame######
         
         peak_mt_df <- peaks_df[,seq(from = 2, to = ncol(peaks_df), by = 7)]
         
@@ -1704,7 +1701,7 @@ server <- function(input, output, session){
                              "peak.apex.seconds" = peak_mt_df[,n],
                              "peak.height.counts" = eie_df[which(eie_df$mt.seconds %in% (peak_mt_df[,n])),n+1])
         
-        ## Create peak fill data frame ----
+        # Create peak fill data frame 
         
         pf_df <- data.frame("peak.number" = 1,
                             "mt.seconds" = eie_df[,1],
@@ -1801,7 +1798,7 @@ server <- function(input, output, session){
         
       }
       
-      ## Save plots ----
+      ######3.11.2 Save plots######
       
       if (parameters_df$plot.format == "Sample"){
         
@@ -1956,9 +1953,9 @@ server <- function(input, output, session){
       
       print("Plotting Complete")
       
-      # 10. Export Data ----
+      #####3.12 Export Data#####
       
-      ## Generate peak area data frame ----
+      ######3.12.1 Generate peak area data frame######
       
       peak_area_df <- cbind("file.name" = c(data_files_name[d], rep("", num_of_injections - 1)),
                             "peak.number" = c(1:num_of_injections),
@@ -1977,7 +1974,7 @@ server <- function(input, output, session){
         peak_area_report = rbind(peak_area_report, peak_area_df)
       }
       
-      ## Generate peak migration time data frame ----
+      ######3.12.2 Generate peak migration time data frame######
       
       peak_mt_df <- cbind("file.name" = c(data_files_name[d], rep("", num_of_injections - 1)),
                           "peak.number" = c(1:num_of_injections),
@@ -1990,7 +1987,7 @@ server <- function(input, output, session){
         peak_mt_report = rbind(peak_mt_report, peak_mt_df)
       }
       
-      ## Update progress bar ----
+      # Update progress bar
       
       #progress <- paste(d,"/", length(data_files), "Files Completed")
       #setWinProgressBar(pb, d, label = progress) 
@@ -2002,7 +1999,7 @@ server <- function(input, output, session){
       print(paste("Completed Analysis of Data File: ", data_file_names[d], sep = ""))
       print("")
       
-      ## Export data ----
+      ######3.12.3 Export data######
       
       write.csv(peak_area_report,
                 file = paste(file_name, "/", "Metabolite Peak Areas.csv", sep = ""),

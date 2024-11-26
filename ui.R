@@ -220,10 +220,14 @@ ui <- dashboardPage(
             column(6,
                    fileInput("mzMLFiles", "Upload .mzML Files", accept = c(".mzML"), multiple = TRUE),
                    DT::dataTableOutput("fileTable")
-                   
             )
           )
-        ),actionButton("initialize", "Initialize Run", style = "color: black; background-color:red;")
+        ),
+        fluidRow(  # New fluidRow for the button
+          column(6,
+                 actionButton("initialize", "Initialize Run", 
+                              style = "color: black; background-color: red; width: 100%; height: 50px; font-size: 16px;"))),
+       uiOutput("progressBar")
       )
     )
   )

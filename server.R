@@ -351,6 +351,7 @@ server <- function(input, output, session){
   
   ####3. Engine tab####
   #####3.1 mzML file upload#####
+  
   # Initialize reactive value to store uploaded files
   uploadedmzML <- reactiveVal(data.frame(FileName = character(), FilePath = character(), stringsAsFactors = FALSE))
 
@@ -374,6 +375,7 @@ server <- function(input, output, session){
       DT::datatable(uploadedmzML(), options = list(pageLength = 5))
     })
   })
+  
   
   #####3.2 Initialze Run Button - Main Content######
   #Initialize run button - main engine content 
@@ -552,7 +554,12 @@ server <- function(input, output, session){
     data_files <- uploadedmzML()$FilePath
     data_file_names <- uploadedmzML()$FileName
     
+    
     for (d in 1:length(data_files)){
+      
+      #Initialize progress bar
+      withProgress(message = paste("Processing data file:", data_file_names[d]), value = 0,{ total_steps <- 7
+ 
       
       print(paste(d, ". ", "Analyzing Data File: ", data_file_names[d], sep = ""))
       
@@ -562,7 +569,11 @@ server <- function(input, output, session){
       
       file.copy(data_files[d], to = paste(file, "temp.mzML", sep = "_"))
       
-      # Read copied data file
+      # Read copied data file and update progress bar
+      
+      
+      incProgress(1/total_steps, detail = paste("Reading Data File"))
+
       
       print("Reading Data File")
       
@@ -607,6 +618,9 @@ server <- function(input, output, session){
       }
       
       if (calibration_response == "Yes"){
+        
+        #Update progress bar
+        incProgress(1/total_steps, detail = paste("Performing Mass Calibration"))
         
         print("Performing Mass Calibration")
         
@@ -696,7 +710,7 @@ server <- function(input, output, session){
               next
             }
             
-            #######3.6.1 Develop correction model######
+            ######3.6.1 Develop correction model######
             
             model_data <- data.frame("x" = c(cal_para_1[1], cal_para_2[1]),
                                      "y" = c(cal_para_1[2], cal_para_2[2]))
@@ -720,9 +734,13 @@ server <- function(input, output, session){
         })
       }
       
+      
       print("Mass Calibration Complete")
       
      #####3.7 Extract Electropherograms#####
+      
+      #Update progress bar
+      incProgress(1/total_steps, detail = paste("Extracting Electropherograms"))
       
       print("Extracting Electropherograms")
       
@@ -757,6 +775,7 @@ server <- function(input, output, session){
         eie_df <- cbind(eie_df,temp_df)
       }
       
+  
       print("Extraction Complete")
       
       #####3.8 Smooth Intensity Vectors#####
@@ -779,7 +798,11 @@ server <- function(input, output, session){
       
       if (smoothing_response == "Yes"){
         
+        #Update progress bar
+        incProgress(1/total_steps, detail = paste("Smoothing Electropherograms"))
+        
         print("Smoothing Electropherograms")
+        
         
         smoothing_kernel_vec <- c(is_df$smoothing.kernel, mass_df$smoothing.kernel)
         smoothing_strength_vec <- c(is_df$smoothing.strength, mass_df$smoothing.strength)
@@ -801,9 +824,13 @@ server <- function(input, output, session){
         
       }
       
+      renderText("Electropherograms Smoothing Complete")
       print("Electropherograms Smoothing Complete")
       
       #####3.9 Internal Standard Peak Detection, Integration, and Filtering#####
+      
+      #Update progress bar
+      incProgress(1/total_steps, detail = paste("Performing Peak Picking and Filtering for Internal Standards"))
       
       print("Performing Peak Picking and Filtering for Internal Standards")
       
@@ -1130,6 +1157,9 @@ server <- function(input, output, session){
       print("Peak Picking and Filtering for Internal Standards Complete")
       
       #####3.10 Metabolite  Peak Detection, Integration, and Filtering#####
+      
+      #Update progress bar
+      incProgress(1/total_steps, detail = paste("Performing Peak Picking and Filtering for Analytes"))
       
       print("Performing Peak Picking and Filtering for Analytes")
       
@@ -1679,10 +1709,13 @@ server <- function(input, output, session){
       
       comment_df <- cbind(is_comment_df, comment_df)
       
+
       print("Peak Picking and Filtering for Analytes Complete")
       
       #####3.11 Plotting#####
       
+      #Update progress bar
+      incProgress(1/total_steps, detail = paste("Plotting & Exporting Electropherograms"))
       print("Plotting Electropherograms")
       
       # Make a list to save plots to
@@ -1950,7 +1983,7 @@ server <- function(input, output, session){
           
         }
       }
-      
+    
       print("Plotting Complete")
       
       #####3.12 Export Data#####
@@ -1993,9 +2026,9 @@ server <- function(input, output, session){
       #setWinProgressBar(pb, d, label = progress) 
       
       # Delete temporary mzml file
-      
+    
       file.remove(paste(file, "temp.mzml", sep = "_"))
-      
+  
       print(paste("Completed Analysis of Data File: ", data_file_names[d], sep = ""))
       print("")
       
@@ -2009,10 +2042,12 @@ server <- function(input, output, session){
                 file = paste(file_name, "/", "Metabolite Migration Times.csv", sep = ""),
                 row.names = FALSE)
       
+        
+      })
       
     }#End of loop
-    
-    
+  
+   
     
       
   })#End of main button

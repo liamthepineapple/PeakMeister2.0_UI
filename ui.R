@@ -46,17 +46,11 @@ ui <- dashboardPage(
       #Reporting tab for exporting results/outputting true detections
       menuItem("Reporting",
         tabName = "reporting",
-        icon = icon("file-export")),
-      # Add the logo at the bottom
-      tags$div(
-        style = "position: absolute; bottom: 10px; width: 100%; text-align: center;",
-        tags$img(src = "www/logo.svg", height = "50px")
-      )
+        icon = icon("file-export"))
     )
   ),
   #### 3. About Main Tab Content####
   dashboardBody(
-   
     use_waiter(),
     tabItems(
       # About tab content

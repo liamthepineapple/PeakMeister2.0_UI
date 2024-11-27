@@ -353,26 +353,26 @@ server <- function(input, output, session){
   #####3.1 mzML file upload#####
   
   # Initialize reactive value to store uploaded files
-  uploadedmzML <- reactiveVal(data.frame(FileName = character(), FilePath = character(), stringsAsFactors = FALSE))
+  uploadedmz5 <- reactiveVal(data.frame(FileName = character(), FilePath = character(), stringsAsFactors = FALSE))
 
-  observeEvent(input$mzMLFiles, {
-    req(input$mzMLFiles)  
+  observeEvent(input$mz5Files, {
+    req(input$mz5Files)  
     
     # Get the names and paths of the uploaded files
     newFiles <- data.frame(
-      FileName = input$mzMLFiles$name,
-      FilePath = input$mzMLFiles$datapath,
+      FileName = input$mz5Files$name,
+      FilePath = input$mz5Files$datapath,
       stringsAsFactors = FALSE)
     
     # Update the reactive value with the new files
-    updatedFiles <- bind_rows(uploadedmzML(), newFiles) 
-    uploadedmzML(updatedFiles)
+    updatedFiles <- bind_rows(uploadedmz5(), newFiles) 
+    uploadedmz5(updatedFiles)
     
 
     
     # Render the data table automatically when files are uploaded
     output$fileTable <- DT::renderDataTable({
-      DT::datatable(uploadedmzML(), options = list(pageLength = 5))
+      DT::datatable(uploadedmz5(), options = list(pageLength = 5))
     })
   })
   
@@ -380,7 +380,7 @@ server <- function(input, output, session){
   #####3.2 Initialze Run Button - Main Content######
   #Initialize run button - main engine content 
   observeEvent(input$initialize, {
-    if (is.null(input$mzMLFiles)) {
+    if (is.null(input$mz5Files)) {
       shiny::showNotification("File upload required", type = "error")
       return(NULL)}
     
@@ -553,8 +553,8 @@ server <- function(input, output, session){
     
     #####3.5 Data File Analysis#####
     # Create vectors for data file directories and names
-    data_files <- uploadedmzML()$FilePath
-    data_file_names <- uploadedmzML()$FileName
+    data_files <- uploadedmz5()$FilePath
+    data_file_names <- uploadedmz5()$FileName
     
     
     for (d in 1:length(data_files)){
@@ -567,27 +567,27 @@ server <- function(input, output, session){
       
       # Make a copy of the data file as data will be written directly to this file during mass calibration
       
-      file <- gsub(".mzML", "", data_files[d])
+      file <- gsub(".mz5", "", data_files[d])
       
-      file.copy(data_files[d], to = paste(file, "temp.mzML", sep = "_"))
+      file.copy(data_files[d], to = paste(file, "temp.mz5", sep = "_"))
       
       # Read copied data file and update progress bar
       
       
       incProgress(1/total_steps, detail = paste("Reading Data File"))
-
+      
       
       print("Reading Data File")
       
       run_data <- readMSData(
-        file = paste(file, "temp.mzML", sep = "_"),
+        files = paste(file, "temp.mz5", sep = "_"),
         pdata = NULL,
         msLevel = 1,
         verbose = isMSnbaseVerbose(),
         centroided. = FALSE,
         smoothed. = FALSE,
         cache. = 0,
-        mode =  "inMemory"
+        mode = "inMemory"
       )
       
       print("File Reading Complete")
@@ -2029,7 +2029,7 @@ server <- function(input, output, session){
       
       # Delete temporary mzml file
     
-      file.remove(paste(file, "temp.mzml", sep = "_"))
+      file.remove(paste(file, "temp.mz5", sep = "_"))
   
       print(paste("Completed Analysis of Data File: ", data_file_names[d], sep = ""))
       print("")

@@ -6,7 +6,7 @@
 if (!require("pacman", quietly = TRUE)) install.packages("pacman")
 if (!require("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 
-pacman::p_load("shiny","shinyBS", "tools","waiter","shinyFiles","RColorBrewer","shinycssloaders", "shinydashboard", "DT", "shinyalert","ggplot2","ggpubr", "plotly","hash","pracma", "tidyverse", "stats", "DescTools", "xcms", "rlang","markdown", "openxlsx","readxl","writexl","fontawesome",
+pacman::p_load("shiny","shinyBS", "tools","waiter","shinyFiles","RColorBrewer","shinycssloaders", "shinydashboard", "DT", "shinyalert","ggplot2","ggpubr", "plotly","hash","pracma", "tidyverse", "stats", "DescTools", "xcms", "rlang","markdown", "openxlsx","readxl","writexl","fontawesome", "MSnbase",
                install = TRUE)
 
 #Title of app
@@ -46,7 +46,12 @@ ui <- dashboardPage(
       #Reporting tab for exporting results/outputting true detections
       menuItem("Reporting",
         tabName = "reporting",
-        icon = icon("file-export"))
+        icon = icon("file-export")),
+      # Add the logo at the bottom
+      tags$div(
+        style = "position: absolute; bottom: 10px; width: 100%; text-align: center;",
+        tags$img(src = "www/logo.svg", height = "50px")
+      )
     )
   ),
   #### 3. About Main Tab Content####
@@ -218,7 +223,7 @@ ui <- dashboardPage(
           id = "Setup",
           fluidRow(
             column(6,
-                   fileInput("mzMLFiles", "Upload .mzML Files", accept = c(".mzML"), multiple = TRUE),
+                   fileInput("mz5Files", "Upload .mz5 Files", accept = c(".mz5"), multiple = TRUE),
                    DT::dataTableOutput("fileTable")
             )
           )

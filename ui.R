@@ -51,6 +51,13 @@ ui <- dashboardPage(
   ),
   #### 3. About Main Tab Content####
   dashboardBody(
+    tags$head(
+      tags$style(HTML("
+        .content-wrapper {
+          padding-bottom: 100px;
+        }
+      "))
+    ),
     use_waiter(),
     tabItems(
       # About tab content
@@ -228,6 +235,11 @@ ui <- dashboardPage(
                               style = "color: black; background-color: red; width: 100%; height: 50px; font-size: 16px;"))),
        uiOutput("progressBar")
       )
+    ), 
+    tags$div(
+      style = "position: absolute; bottom: 10px; right: 10px;",
+      tags$img(src = "PeakMeisterLogo.png", style = "width: auto; height: auto;")
+      
     )
   )
 )#Closing Bracket for UI dashboiard

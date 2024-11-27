@@ -380,7 +380,9 @@ server <- function(input, output, session){
   #####3.2 Initialze Run Button - Main Content######
   #Initialize run button - main engine content 
   observeEvent(input$initialize, {
-    req(uploadedmzML()) 
+    if (is.null(input$mzMLFiles)) {
+      shiny::showNotification("File upload required", type = "error")
+      return(NULL)}
     
     #Generate a results folder that will not overwrite previous results folders
     count <- 1

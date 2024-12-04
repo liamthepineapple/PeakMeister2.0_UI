@@ -7,9 +7,11 @@
 options(shiny.maxRequestSize = 150 * 1024^3)
 options(shiny.timeout = 600)  # Set timeout to 600 seconds (10 minutes)
 
-
 #Initialize server
 server <- function(input, output, session){ 
+  
+  # Initialize plotly_data as an empty reactive variable
+  plotly_data <- reactiveVal(list())
   
   ####1. About tab####
   #Functions for "About" tab page -> reading information from markdown files
@@ -74,11 +76,22 @@ server <- function(input, output, session){
     Manual.Indexes = character(),
     stringsAsFactors = FALSE
   ))
+  #May need to include peak migfration times into these? Not sure???
+  
+  #Reactive values for manual MTI list
+  userMTI <- reactiveVal(data.frame(
+    name = character(),
+    left_is = character(),
+    right_is = character(),
+    description = character(),
+    stringsAsFactors = FALSE
+  ))
   
   # Render editable tables
   output$massListData <- DT::renderDataTable({ massData() }, editable = TRUE)
   output$refMassListData <- DT::renderDataTable({ refMassListData() }, editable = TRUE)
   output$parametersData <- DT::renderDataTable({ parametersData() }, editable = TRUE)
+  output$userMTIdata <- DT::renderDataTable({userMTIdata()}, editable = TRUE)
   
   #####2.2 Data Table Input#####
   #Look for an excel file/read parameters file.
@@ -331,7 +344,75 @@ server <- function(input, output, session){
     showNotification("Project information has been cleared.", type = "message")
   })
   
-  #####2.7 Save input information#####
+  #####2.7 Manual MTI input#####
+  #Upload file sheet
+  observeEvent(input$userMTI, {
+    req(input$userMTI)
+    userMTI_df <- readxl::read_excel(input$userMTI$datapath, sheet = "User Supplied Migration Indexes") %>% as.data.frame()
+    
+    #Store file in reactive value
+    userMTI(userMTI_df)
+  })
+  
+  #Manual Data Input
+  observeEvent(input$addMTIrow, {
+    newRow <- data.frame(
+      name = input$name,
+      left_is = input$left_is,
+      right_is = input$right_is,
+      description = input$description,
+      `1` = input$peak.1.mt,
+      `2` = input$peak.2.mt,
+      `3` = input$peak.3.mt,
+      `4` = input$peak.4.mt,
+      `5` = input$peak.5.mt,
+      `6` = input$peak.6.mt,
+      `7` = input$peak.7.mt,
+      `8` = input$peak.8.mt,
+      `9` = input$peak.9.mt,
+      `10` = input$peak.10.mt,
+      `11` = input$peak.11.mt,
+      `12` = input$peak.12.mt,
+      `13` = input$peak.13.mt,
+      stringsAsFactors = FALSE
+    )
+    #Update dataset
+    updatedData <- rbind(userMTI(), newRow)
+    userMTI(updatedData)
+    
+    # Clear inputs values when user adds more things
+    updateTextInput(session, "name", value = "")
+    updateTextInput(session, "left_is", value = "")
+    updateTextInput(session, "right_is", value = "")
+    updateTextInput(session, "description", value = "")
+    lapply(1:13, function(i) {
+      updateNumericInput(session, paste0("ref.peak.", i, ".mt"), value = 0)
+    })
+  })
+  
+  #Delete selected MTI row
+  observeEvent(input$deleteMTIrow, {
+    selected_row <- input$userMTIdata_rows_selected
+    if (length(selected_row) > 0) {
+      updatedData <- userMTI()[-selected_row, ]
+      userMTI(updatedData)
+    } else {
+      showNotification("Please select a row to delete.", type = "error")
+    }
+  })
+  
+  #Clearing the MTI list
+  observeEvent(input$clearMTIlist, {
+    userMTI(data.frame())
+    showNotification("User Supplied Migration Indexes list has been cleared.", type = "message")
+  })
+  
+  #Data table output for userMTI information
+  output$userMTIdata <- DT::renderDataTable({
+    DT::datatable(userMTI(), selection = 'single', editable = TRUE)})
+  
+  
+  #####2.8 Save input information#####
   #Function for saving datatable once user has uploaded their values
   output$downloadData <- downloadHandler(
     #Save data datble as excel sheet with name "Mass List and Parameters"
@@ -350,7 +431,7 @@ server <- function(input, output, session){
   )
   
   ####3. Engine tab####
-  #####3.1 mzML file upload#####
+  #####3.1 mz5 file upload#####
   
   # Initialize reactive value to store uploaded files
   uploadedmz5 <- reactiveVal(data.frame(FileName = character(), FilePath = character(), stringsAsFactors = FALSE))
@@ -367,7 +448,6 @@ server <- function(input, output, session){
     # Update the reactive value with the new files
     updatedFiles <- bind_rows(uploadedmz5(), newFiles) 
     uploadedmz5(updatedFiles)
-    
 
     
     # Render the data table automatically when files are uploaded
@@ -375,7 +455,8 @@ server <- function(input, output, session){
       DT::datatable(uploadedmz5(), options = list(pageLength = 5))
     })
   })
-  
+
+
   
   #####3.2 Initialze Run Button - Main Content######
   #Initialize run button - main engine content 
@@ -521,8 +602,6 @@ server <- function(input, output, session){
     #####3.4 User Supplied MTIs#####
     
     if (parametersData()$Manual.Indexes == "Yes") {
-      if (file.exists("User Supplied Migration Indexes.csv")) {
-        user_mti_df <- read.csv("User Supplied Migration Indexes.csv")
         
         names <- unique(c(user_mti_df$name, user_mti_df$left_is, user_mti_df$right_is, user_mti_df$description))
         
@@ -544,7 +623,6 @@ server <- function(input, output, session){
           mi_df[row, 2:ncol(mi_df)] <- user_mti_df[i, 2:ncol(user_mti_df)]
         }
       }
-    }
     
     # Write the migration index summary to a CSV file
     write.csv(mi_df, 
@@ -552,13 +630,13 @@ server <- function(input, output, session){
               row.names = FALSE)
     
     #####3.5 Data File Analysis#####
-    # Create vectors for data file directories and names
+    # Create vectors for data file directories and name
     data_files <- uploadedmz5()$FilePath
-    data_file_names <- uploadedmz5()$FileName
+    data_file_names <- uploadedmz5()$FileName  
     
+
     
     for (d in 1:length(data_files)){
-      
       #Initialize progress bar
       withProgress(message = paste("Processing data file:", data_file_names[d]), value = 0,{ total_steps <- 7
  
@@ -580,7 +658,7 @@ server <- function(input, output, session){
       print("Reading Data File")
       
       run_data <- readMSData(
-        files = paste(file, "temp.mz5", sep = "_"),
+        file = paste(file, "temp.mz5", sep = "_"),
         pdata = NULL,
         msLevel = 1,
         verbose = isMSnbaseVerbose(),
@@ -602,7 +680,7 @@ server <- function(input, output, session){
       mass_df <- massData()
       is_df <- refMassListData()
       parameters_df <- parametersData()
-      
+      user_mti_df <- userMTI()
       calibration_response <- parameters_df$apply.mass.calibration
       
       # Confirm response is "Yes" or "No". Otherwise, produce an error.
@@ -1716,7 +1794,8 @@ server <- function(input, output, session){
       
       #####3.11 Plotting#####
       
-      #Update progress bar
+ 
+      
       incProgress(1/total_steps, detail = paste("Plotting & Exporting Electropherograms"))
       print("Plotting Electropherograms")
       
@@ -1727,7 +1806,7 @@ server <- function(input, output, session){
       
       for (n in 1:length(name_vec)){
         
-        ######3.11.1 Create annotation data frame######
+        ######3.11.1 Create annotation and peak fill data frame######
         
         peak_mt_df <- peaks_df[,seq(from = 2, to = ncol(peaks_df), by = 7)]
         
@@ -1736,7 +1815,7 @@ server <- function(input, output, session){
                              "peak.apex.seconds" = peak_mt_df[,n],
                              "peak.height.counts" = eie_df[which(eie_df$mt.seconds %in% (peak_mt_df[,n])),n+1])
         
-        # Create peak fill data frame 
+        #Create peak fill data frame
         
         pf_df <- data.frame("peak.number" = 1,
                             "mt.seconds" = eie_df[,1],
@@ -1795,7 +1874,7 @@ server <- function(input, output, session){
                                                            max(eie_df[,(n + 1)])))
         
       }
-      
+      ######3.11.2 Create plot function for ggplots######
       plot_function <- function(eie_data, annotation_data, integration_data, label_data, x_axis_data, y_axis_data){
         
         extra_space <- ifelse(x_axis_data[1] > 70, 1, 0)
@@ -1833,7 +1912,45 @@ server <- function(input, output, session){
         
       }
       
-      ######3.11.2 Save plots######
+      ######3.11.3 Create Plot Function for making plotly plots######
+      #Note: this may be redundant and may get removed later.
+      plot_function2 <- function(eie_data, annotation_data, integration_data, label_data, x_axis_data, y_axis_data, font_size_1, font_size_2) {
+        extra_space <- ifelse(x_axis_data[1] > 70, 1, 0)
+        
+        ggplot(data = eie_data) +
+          geom_line(aes(x = mt.seconds / 60, y = eie_data[, 2]), colour = "grey50") +
+          theme_classic() +
+          coord_cartesian(xlim = c(x_axis_data[1] / 60 - extra_space, x_axis_data[2] / 60 + extra_space),
+                          ylim = c(0, 1.5 * y_axis_data[1])) +
+          scale_y_continuous(name = "Ion Counts",
+                             labels = function(x) format(x, scientific = TRUE),
+                             expand = c(0, 0),
+                             breaks = scales::pretty_breaks(n = 10)) +
+          scale_x_continuous(name = "Migration Time (Minutes)",
+                             breaks = scales::pretty_breaks(n = 10)) +
+          ggtitle(paste(label_data[1], " EIE", " (m/z = ", label_data[2], ")", sep = ""),
+                  subtitle = paste("Data File: ", data_files[d])) +
+          geom_ribbon(data = integration_data,
+                      aes(x = mt.seconds / 60, ymax = intensity, ymin = baseline, fill = peak.number),
+                      alpha = 0.4) +
+          geom_text(data = annotation_data,
+                    label = annotation_data$peak.number,
+                    size = font_size_1,
+                    family = "sans",
+                    aes(x = peak.apex.seconds / 60,
+                        y = peak.height.counts + 0.1 * y_axis_data[1])) +
+          geom_text(data = annotation_data,
+                    label = annotation_data$comment,
+                    size = font_size_1,
+                    family = "sans",
+                    aes(x = peak.apex.seconds / 60,
+                        y = peak.height.counts + 0.2 * y_axis_data[1])) +
+          theme(legend.position = "none",
+                text = element_text(size = font_size_2, family = "sans"))
+      }
+      
+      ######3.11.4 Save plots######
+      plotly_objects <- list()
       
       if (parameters_df$plot.format == "Sample"){
         
@@ -1879,6 +1996,32 @@ server <- function(input, output, session){
                                       y_axis_data = plot_list[[n]][[6]]),
                  path = paste(file_name, "/Plots/", folder, "/", data_files_name[d], sep = ""))
           
+        }
+        
+        # Save Internal Standard Plots as plotly plots
+        for (n in 1:num_of_is) {
+          folder <- "Internal Standards"
+          name <- name_vec[n]
+          
+          font_size_1 <- 7
+          font_size_2 <- 25
+          
+          plot_obj <- plot_function2(
+            eie_data = plot_list[[n]][[1]], 
+            annotation_data = plot_list[[n]][[2]], 
+            integration_data = plot_list[[n]][[3]],
+            label_data = plot_list[[n]][[4]],
+            x_axis_data = plot_list[[n]][[5]],
+            y_axis_data = plot_list[[n]][[6]],
+            font_size_1 = font_size_1,
+            font_size_2 = font_size_2
+          )
+          
+          #Name plots based on the file being processed and the metabolite
+          plot_name <- paste0(data_files_name[d], "_", name_vec[n])
+          #Convert generated ggplots into plotly functions with ggplotly
+          plotly_objects[[plot_name]] <- ggplotly(plot_obj)
+          #Shadow code: plotly_objects[[n]] <- ggplotly(plot_obj)
         }
         
         # Save Analyte Plots
@@ -1954,17 +2097,109 @@ server <- function(input, output, session){
                    path = paste(file_name, "/Plots/", folder, "/", data_files_name[d], sep = ""))
           }
         }
+      
+        # Save Analyte Plots as Plotly Objects 
+        for (n in (num_of_is + 1):length(name_vec)) {
+
+          folder <- "Analytes"
+          name <- name_vec[n]
+
+          # Analytes using RMT
+          if (mi_df$description[n - num_of_is] != "mi") {
+
+            font_size_1 <- 4
+            font_size_2 <- 12
+
+            is_index <- which(name_vec == mi_df$description[(n - num_of_is)])
+
+            plotly_figure <- subplot(
+              plot_function2(
+                eie_data = plot_list[[n]][[1]],
+                annotation_data = plot_list[[n]][[2]],
+                integration_data = plot_list[[n]][[3]],
+                label_data = plot_list[[n]][[4]],
+                x_axis_data = c(min(eie_df$mt.seconds), max(eie_df$mt.seconds)),
+                y_axis_data = plot_list[[n]][[6]][2],
+                font_size_1 = font_size_1,
+                font_size_2 = font_size_2
+              ),
+              plot_function2(
+                eie_data = plot_list[[n]][[1]],
+                annotation_data = plot_list[[n]][[2]],
+                integration_data = plot_list[[n]][[3]],
+                label_data = plot_list[[n]][[4]],
+                x_axis_data = plot_list[[n]][[5]],
+                y_axis_data = plot_list[[n]][[6]],
+                font_size_1 = font_size_1,
+                font_size_2 = font_size_2
+              ),
+              plot_function2(
+                eie_data = plot_list[[is_index]][[1]],
+                annotation_data = plot_list[[is_index]][[2]],
+                integration_data = plot_list[[is_index]][[3]],
+                label_data = plot_list[[is_index]][[4]],
+                x_axis_data = plot_list[[n]][[5]],
+                y_axis_data = plot_list[[is_index]][[6]],
+                font_size_1 = font_size_1,
+                font_size_2 = font_size_2
+              ),
+              nrows = 3
+            )
+      
+            #Name plots based on the file being processed and the metabolite
+            plot_name <- paste0(data_files_name[d], "_", name_vec[n])
+            #Convert generated ggplots into plotly functions with ggplotly
+            plotly_objects[[plot_name]] <- ggplotly(plotly_figure)
+          }
+
+          #Saving Analytes using MI as plotly objects
+          if (mi_df$description[n - num_of_is] == "mi") {
+
+            font_size_1 <- 4
+            font_size_2 <- 12
+
+            figure_plotly <- subplot(
+              plot_function2(
+                eie_data = plot_list[[n]][[1]],
+                annotation_data = plot_list[[n]][[2]],
+                integration_data = plot_list[[n]][[3]],
+                label_data = plot_list[[n]][[4]],
+                x_axis_data = c(min(eie_df$mt.seconds), max(eie_df$mt.seconds)),
+                y_axis_data = plot_list[[n]][[6]][2],
+                font_size_1 = font_size_1,
+                font_size_2 = font_size_2
+              ),
+              plot_function2(
+                eie_data = plot_list[[n]][[1]],
+                annotation_data = plot_list[[n]][[2]],
+                integration_data = plot_list[[n]][[3]],
+                label_data = plot_list[[n]][[4]],
+                x_axis_data = plot_list[[n]][[5]],
+                y_axis_data = plot_list[[n]][[6]],
+                font_size_1 = font_size_1,
+                font_size_2 = font_size_2
+              ),
+              nrows = 2
+            )
+
+            #Name plots based on the file being processed and the metabolite
+            plot_name <- paste0(data_files_name[d], "_", name_vec[n])
+            #Convert generated ggplots into plotly functions with ggplotly
+            plotly_objects[[plot_name]] <- ggplotly(figure_plotly)
+          }
+        }
       }
+      
+      #Save plotly_objects to reactive varibale plotly_data
+      plotly_data(plotly_objects)
       
       if (parameters_df$plot.format == "Metabolite"){
         
         # Save plots to their respective folders within the "Plots" folder
-        
         data_files_name <- list.files(path = "mzML Files")
-        data_files_name <- gsub(".mzML", "", data_file_names, fixed = TRUE)
+        data_files_name <- gsub(".mz5", "", data_file_names, fixed = TRUE)
         
         # Save Internal Standard Plots
-        
         for (n in 1:length(name_vec)){
           
           folder <- name_vec[n]
@@ -1982,10 +2217,37 @@ server <- function(input, output, session){
                                       x_axis_data = plot_list[[n]][[5]],
                                       y_axis_data = plot_list[[n]][[6]]),
                  path = paste(file_name, "/Plots/", folder, "/", sep = ""))
+        }
+        
+        #Save plots as editable plotly plots
+        for (n in 1:length(name_vec)) {
+
+          folder <- name_vec[n]
+
+          font_size_1 <- 7
+          font_size_2 <- 25
+
+          plot_plot <- plot_function2(
+            eie_data = plot_list[[n]][[1]],
+            annotation_data = plot_list[[n]][[2]],
+            integration_data = plot_list[[n]][[3]],
+            label_data = plot_list[[n]][[4]],
+            x_axis_data = plot_list[[n]][[5]],
+            y_axis_data = plot_list[[n]][[6]],
+            font_size_1 = font_size_1,
+            font_size_2 = font_size_2
+          )
           
+          #Name plots based on the file being processed and the metabolite
+          plot_name <- paste0(data_files_name[d], "_", name_vec[n])
+          #Convert generated ggplots into plotly functions with ggplotly
+          plotly_objects[[plot_name]] <- ggplotly(plot_plot)
         }
       }
-    
+      
+      #Save plotly_objects to plotly_data
+      plotly_data(plotly_objects)
+      
       print("Plotting Complete")
       
       #####3.12 Export Data#####
@@ -2022,12 +2284,7 @@ server <- function(input, output, session){
         peak_mt_report = rbind(peak_mt_report, peak_mt_df)
       }
       
-      # Update progress bar
-      
-      #progress <- paste(d,"/", length(data_files), "Files Completed")
-      #setWinProgressBar(pb, d, label = progress) 
-      
-      # Delete temporary mzml file
+      # Delete temporary mz5 file
     
       file.remove(paste(file, "temp.mz5", sep = "_"))
   
@@ -2043,19 +2300,31 @@ server <- function(input, output, session){
       write.csv(peak_mt_report,
                 file = paste(file_name, "/", "Metabolite Migration Times.csv", sep = ""),
                 row.names = FALSE)
-      
-        
       })
-      
     }#End of loop
-  
-   
-    
-      
   })#End of main button
   
+  #####4. Visualization tab####
+  # Populate the reactive variable with the Plotly objects
+  observe({
+    plot_names <- names(plotly_data())
+    updateSelectInput(session, "plot_selector", choices = plot_names)
+  })
+  
+  # Render the selected Plotly plot
+  output$selected_plot <- renderPlotly({
+    req(input$plot_selector)  # Ensure a plot is selected
+    plot <- plotly_data()[[input$plot_selector]]
+    if (is.null(plot)) {
+      plotly_empty()  # Return an empty plot if the plot is NULL
+    } else {
+      plot
+    }
+  })
   
  
+ 
+    
 }#Closing bracket
   
 

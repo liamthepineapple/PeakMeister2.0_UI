@@ -6,7 +6,7 @@
 if (!require("pacman", quietly = TRUE)) install.packages("pacman")
 if (!require("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 
-pacman::p_load("shiny","shinyBS", "tools","waiter","shinyFiles","RColorBrewer","shinycssloaders", "shinydashboard", "DT", "shinyalert","ggplot2","ggpubr", "plotly","hash","pracma", "tidyverse", "stats", "DescTools", "xcms", "rlang","markdown", "openxlsx","readxl","writexl","fontawesome", "MSnbase",
+pacman::p_load("shiny","shinyBS", "tools","waiter","shinyFiles","RColorBrewer","shinycssloaders", "shinydashboard", "DT", "shinyalert","ggplot2","ggpubr", "plotly","hash","pracma", "tidyverse", "stats", "DescTools", "xcms", "rlang","markdown", "openxlsx","readxl","writexl","fontawesome", "MSnbase", "mzR",
                install = TRUE)
 
 #Title of app
@@ -211,8 +211,38 @@ ui <- dashboardPage(
                             verbatimTextOutput("currentProjectInfo")
                           )
                         )
-                      )
-                    ),
+                      ),
+          
+          #####4.5: Manual Migration Index Input#####
+          tabPanel("User Supplied Migration Indexes",
+                   fileInput("userMTI", "User Supplied Migration Indexes (Excel)", accept = c(".xlsx")),
+                   div(style = "overflow-x: auto;",
+                       DT::dataTableOutput("userMTIdata")),
+                   fluidRow(
+                     #generate input columns for reference mass list
+                     column(3, textInput("name", "Name of Metabolite")),
+                     column(3, textInput("left_is", "Left internal standard")),
+                     column(3, textInput("right_is", "Right internal sdtandard")),
+                     column(3, textInput("description", "Description")),
+                   ),
+                   #For organizational purposes, separate peak migration time inputs from other paramaters
+                   tags$strong(h4("Peak Migration Time Inputs")),
+                   #Function for creating a column for each peak. 
+                   #May include option to change the number of peaks in the future. For now, its hardcoded at 13
+                   fluidRow(
+                     lapply(1:13, function(i) {
+                       column(3, numericInput(paste0("ref.peak.", i, ".mt"), paste("Peak", i, "MT"), value = 0))
+                     })
+                   ),
+                   #Button for adding a row 
+                   actionButton("addMTIrow", "Add manual MTI row"),
+                   #Button for deleting reference mass row 
+                   actionButton("deleteMTIrow", "Delete Selected MTI row"),
+                   #Button for clearing whole table 
+                   actionButton("clearMTIlist", "Clear All")
+                   )
+          
+                  ),
         #Action button for saving manually input data
         downloadButton("downloadData", "Save Table (.xlsx)")
         ),
@@ -234,8 +264,20 @@ ui <- dashboardPage(
                  actionButton("initialize", "Initialize Run", 
                               style = "color: black; background-color: red; width: 100%; height: 50px; font-size: 16px;"))),
        uiOutput("progressBar")
-      )
-    ), 
+      ),
+      
+      #Visualization tab
+        tabItem(tabName = "processing",
+                fluidRow(
+                  column(4,
+                         selectInput("plot_selector", "Select Plot:", choices = NULL)
+                  ),
+                  column(8,
+                         plotlyOutput("selected_plot")
+                  )
+                )
+        )
+        ), 
     tags$div(
       style = "position: absolute; bottom: 10px; right: 10px;",
       tags$img(src = "PeakMeisterLogo.png", style = "width: auto; height: auto;")

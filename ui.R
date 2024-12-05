@@ -267,21 +267,20 @@ ui <- dashboardPage(
       ),
       
       #Visualization tab
-        tabItem(tabName = "processing",
-                fluidRow(
-                  column(4,
-                         selectInput("plot_selector", "Select Plot:", choices = NULL)
-                  ),
-                  column(8,
-                         plotlyOutput("selected_plot")
-                  )
+      tabItem(tabName = "processing",
+              fluidRow(
+                column(4,
+                       selectInput("file_selector", "Select File:", choices = NULL),
+                       selectInput("plot_selector", "Select Plot:", choices = NULL), DTOutput("plotly_table")),
+                column(8,
+                       plotlyOutput("selected_plot")
                 )
-        )
-        ), 
+              )
+            )
+          ), 
     tags$div(
       style = "position: absolute; bottom: 10px; right: 10px;",
       tags$img(src = "PeakMeisterLogo.png", style = "width: auto; height: auto;")
-      
     )
   )
 )#Closing Bracket for UI dashboiard

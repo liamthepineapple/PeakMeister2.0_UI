@@ -12,6 +12,14 @@ server <- function(input, output, session){
   
   # Initialize plotly_data as an empty reactive variable
   plotly_data <- reactiveVal(list())
+  #Initialize reactive values for manual integration 
+  reactive_vals <- reactiveValues()
+  # Reactive values used for the manual integration
+  reactive_vals$selected_point <- NULL
+  reactive_vals$selected_point2 <- NULL
+  reactive_vals$plot_subset <- NULL
+  reactive_vals$x <- NULL
+  reactive_vals$y <- NULL
   
   ####1. About tab####
   #Functions for "About" tab page -> reading information from markdown files
@@ -634,7 +642,14 @@ server <- function(input, output, session){
     data_files <- uploadedmz5()$FilePath
     data_file_names <- uploadedmz5()$FileName  
     plotly_objects <- list()
-
+    
+    # Define the function to save plotly_objects to .RDA file
+    save_plotly_objects <- function(file_name) {
+      # Save the plotly_objects list into the specified folder
+      save(plotly_objects, file = file.path(file_name, "plotly_objects.RData"))
+    }
+    
+    
     
     for (d in 1:length(data_files)){
       
@@ -2302,8 +2317,14 @@ server <- function(input, output, session){
       write.csv(peak_mt_report,
                 file = paste(file_name, "/", "Metabolite Migration Times.csv", sep = ""),
                 row.names = FALSE)
+      
+      # Save plotly_objects to .RDA file
+      save_plotly_objects(file_name)
       })
     }#End of loop
+    
+
+    
   })#End of main button
   
   #####4. Visualization tab####
@@ -2311,6 +2332,14 @@ server <- function(input, output, session){
   observe({
     updateSelectInput(session, "file_selector", choices = uploadedmz5()$FileName)
   })
+  
+  #Option to upload a file containing the plotlyData from the dataruns
+  observeEvent(input$RDatainput, {
+    req(input$RDatainput)
+    load(input$RDatainput$datapath)
+    plotly_data(plotly_objects)
+  })
+  
   
   # Populate the plot selector based on the selected file
   observe({
@@ -2320,16 +2349,31 @@ server <- function(input, output, session){
     updateSelectInput(session, "plot_selector", choices = filtered_plot_names)
   })
   
-  # Render the selected Plotly plot
+  # Render the selected plot
   output$selected_plot <- renderPlotly({
     req(input$plot_selector)
     plot <- plotly_data()[[input$plot_selector]]
     if (is.null(plot)) {
-      plotly_empty()
-    } else {
-      plot
+    plotly_empty()
+  } else {
+    # Add manual integration markers and lines if they exist
+    plot 
     }
+})
+  
+  # Observe manual integration button click
+  observeEvent(input$manual_integrate, {
+    showModal(
+      modalDialog(
+        title = "Select a Region",
+        plotlyOutput("region_select"),
+        footer = actionButton("confirm_region", "Confirm Region"),
+        size = "l",
+        easyClose = TRUE
+      )   
+    )
   })
+  
   
   output$plotly_table <- renderDT({
     plot_names <- names(plotly_data())

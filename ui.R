@@ -270,8 +270,10 @@ ui <- dashboardPage(
       tabItem(tabName = "processing",
               fluidRow(
                 column(4,
+                       fileInput("RDatainput", ":Uploaded .RData file", accept = c(".RData")),
                        selectInput("file_selector", "Select File:", choices = NULL),
-                       selectInput("plot_selector", "Select Plot:", choices = NULL), DTOutput("plotly_table")),
+                       selectInput("plot_selector", "Select Plot:", choices = NULL), DTOutput("plotly_table"),
+                       actionButton("manual_integrate", "Manual Integrate")),
                 column(8,
                        plotlyOutput("selected_plot")
                 )

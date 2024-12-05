@@ -633,10 +633,11 @@ server <- function(input, output, session){
     # Create vectors for data file directories and name
     data_files <- uploadedmz5()$FilePath
     data_file_names <- uploadedmz5()$FileName  
-    
+    plotly_objects <- list()
 
     
     for (d in 1:length(data_files)){
+      
       #Initialize progress bar
       withProgress(message = paste("Processing data file:", data_file_names[d]), value = 0,{ total_steps <- 7
  
@@ -1950,7 +1951,7 @@ server <- function(input, output, session){
       }
       
       ######3.11.4 Save plots######
-      plotly_objects <- list()
+     
       
       if (parameters_df$plot.format == "Sample"){
         
@@ -2188,10 +2189,11 @@ server <- function(input, output, session){
             plotly_objects[[plot_name]] <- ggplotly(figure_plotly)
           }
         }
+        #Save plotly_objects to reactive varibale plotly_data
+      plotly_data(plotly_objects)
       }
       
-      #Save plotly_objects to reactive varibale plotly_data
-      plotly_data(plotly_objects)
+      
       
       if (parameters_df$plot.format == "Metabolite"){
         
@@ -2243,11 +2245,11 @@ server <- function(input, output, session){
           #Convert generated ggplots into plotly functions with ggplotly
           plotly_objects[[plot_name]] <- ggplotly(plot_plot)
         }
+        #save data to reactive variable
+        plotly_data(plotly_objects)
       }
       
-      #Save plotly_objects to plotly_data
-      plotly_data(plotly_objects)
-      
+ 
       print("Plotting Complete")
       
       #####3.12 Export Data#####
@@ -2305,21 +2307,34 @@ server <- function(input, output, session){
   })#End of main button
   
   #####4. Visualization tab####
-  # Populate the reactive variable with the Plotly objects
+  # Populate the file selector with the uploaded files
   observe({
+    updateSelectInput(session, "file_selector", choices = uploadedmz5()$FileName)
+  })
+  
+  # Populate the plot selector based on the selected file
+  observe({
+    req(input$file_selector)
     plot_names <- names(plotly_data())
-    updateSelectInput(session, "plot_selector", choices = plot_names)
+    filtered_plot_names <- plot_names[grepl(input$file_selector, plot_names)]
+    updateSelectInput(session, "plot_selector", choices = filtered_plot_names)
   })
   
   # Render the selected Plotly plot
   output$selected_plot <- renderPlotly({
-    req(input$plot_selector)  # Ensure a plot is selected
+    req(input$plot_selector)
     plot <- plotly_data()[[input$plot_selector]]
     if (is.null(plot)) {
-      plotly_empty()  # Return an empty plot if the plot is NULL
+      plotly_empty()
     } else {
       plot
     }
+  })
+  
+  output$plotly_table <- renderDT({
+    plot_names <- names(plotly_data())
+    plotly_df <- data.frame(PlotName = plot_names, stringsAsFactors = FALSE)
+    datatable(plotly_df, options = list(pageLength = 5))
   })
   
  

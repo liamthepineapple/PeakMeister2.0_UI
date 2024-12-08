@@ -1898,7 +1898,7 @@ server <- function(input, output, session){
         
       }
       # Save the entire plot_list to a .RData file in the subfolder
-      save(plot_list, file = file.path(subfolder_path, "plot_list_data.RData"))View
+      save(plot_list, file = file.path(subfolder_path, "plot_list_data.RData"))
       
       ######3.11.2 Create plot function for ggplots######
       plot_function <- function(eie_data, annotation_data, integration_data, label_data, x_axis_data, y_axis_data){

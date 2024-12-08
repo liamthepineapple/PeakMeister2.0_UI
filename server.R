@@ -484,6 +484,9 @@ server <- function(input, output, session){
     #Create a "Plots" folder to store figures
     dir.create(path = file.path(file_name, "Plots"), showWarnings = FALSE)
     
+    #Create a data folder to store raw data for future processing
+    dir.create(path = file.path(file_name, "Data"), showWarnings = FALSE)
+    
     #Create a vector of metabolite and internal standard names
     name_vec <- c(refMassListData()$name, massData()$name)
     
@@ -645,7 +648,6 @@ server <- function(input, output, session){
     
     # Define the function to save plotly_objects to .RDA file
     save_plotly_objects <- function(file_name) {
-      # Save the plotly_objects list into the specified folder
       save(plotly_objects, file = file.path(file_name, "plotly_objects.RData"))
     }
     
@@ -658,6 +660,11 @@ server <- function(input, output, session){
  
       
       print(paste(d, ". ", "Analyzing Data File: ", data_file_names[d], sep = ""))
+      
+      # Create a subfolder for the current file inside the Data folder
+      subfolder_path <- file.path(file_name, "Data", data_file_names[d])
+      dir.create(path = subfolder_path, showWarnings = FALSE, recursive = TRUE)
+      
       
       # Make a copy of the data file as data will be written directly to this file during mass calibration
       
@@ -1890,6 +1897,9 @@ server <- function(input, output, session){
                                                            max(eie_df[,(n + 1)])))
         
       }
+      # Save the entire plot_list to a .RData file in the subfolder
+      save(plot_list, file = file.path(subfolder_path, "plot_list_data.RData"))View
+      
       ######3.11.2 Create plot function for ggplots######
       plot_function <- function(eie_data, annotation_data, integration_data, label_data, x_axis_data, y_axis_data){
         

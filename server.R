@@ -12,14 +12,14 @@ server <- function(input, output, session){
   
   # Initialize plotly_data as an empty reactive variable
   plotly_data <- reactiveVal(list())
-  #Initialize reactive values for manual integration 
-  reactive_vals <- reactiveValues()
-  # Reactive values used for the manual integration
-  reactive_vals$selected_point <- NULL
-  reactive_vals$selected_point2 <- NULL
-  reactive_vals$plot_subset <- NULL
-  reactive_vals$x <- NULL
-  reactive_vals$y <- NULL
+  
+  plotly_test <- reactiveVal(list())
+  # Reactive values to store marker positions
+  reactive_vals <- reactiveValues(
+    selected_point = list(x =14, y = NULL),  # Set initial values
+    selected_point2 = list(x = 15, y = NULL),
+    selected_marker = NULL # Set initial values
+  )
   
   ####1. About tab####
   #Functions for "About" tab page -> reading information from markdown files
@@ -353,7 +353,8 @@ server <- function(input, output, session){
   })
   
   #####2.7 Manual MTI input#####
-  #Upload file sheet
+  
+  #Upload excel sheet titled user supplied migration indexes
   observeEvent(input$userMTI, {
     req(input$userMTI)
     userMTI_df <- readxl::read_excel(input$userMTI$datapath, sheet = "User Supplied Migration Indexes") %>% as.data.frame()
@@ -612,6 +613,8 @@ server <- function(input, output, session){
                    mi_df[2:ncol(mi_df)])
     #####3.4 User Supplied MTIs#####
     
+    user_mti_df <- userMTI()
+    
     if (parametersData()$Manual.Indexes == "Yes") {
         
         names <- unique(c(user_mti_df$name, user_mti_df$left_is, user_mti_df$right_is, user_mti_df$description))
@@ -645,6 +648,7 @@ server <- function(input, output, session){
     data_files <- uploadedmz5()$FilePath
     data_file_names <- uploadedmz5()$FileName  
     plotly_objects <- list()
+    
     
     # Define the function to save plotly_objects to .RDA file
     save_plotly_objects <- function(file_name) {
@@ -703,7 +707,9 @@ server <- function(input, output, session){
       mass_df <- massData()
       is_df <- refMassListData()
       parameters_df <- parametersData()
-      user_mti_df <- userMTI()
+   
+      
+      
       calibration_response <- parameters_df$apply.mass.calibration
       
       # Confirm response is "Yes" or "No". Otherwise, produce an error.
@@ -1815,10 +1821,10 @@ server <- function(input, output, session){
 
       print("Peak Picking and Filtering for Analytes Complete")
       
+      View(comment_df)
+      
       #####3.11 Plotting#####
-      
- 
-      
+      #Update progress bar
       incProgress(1/total_steps, detail = paste("Plotting & Exporting Electropherograms"))
       print("Plotting Electropherograms")
       
@@ -1897,8 +1903,9 @@ server <- function(input, output, session){
                                                            max(eie_df[,(n + 1)])))
         
       }
-      # Save the entire plot_list to a .RData file in the subfolder
-      save(plot_list, file = file.path(subfolder_path, "plot_list_data.RData"))
+    
+      # Save the entire plot_list to a .RData file in the subfolder as well as peaks_df
+      save(plot_list, peaks_df,peak_mt_df,peak_area_df, file = file.path(subfolder_path, "plot_list_data.RData"))
       
       ######3.11.2 Create plot function for ggplots######
       plot_function <- function(eie_data, annotation_data, integration_data, label_data, x_axis_data, y_axis_data){
@@ -1939,49 +1946,70 @@ server <- function(input, output, session){
       }
       
       ######3.11.3 Create Plot Function for making plotly plots######
-      #Note: this may be redundant and may get removed later.
-      plot_function2 <- function(eie_data, annotation_data, integration_data, label_data, x_axis_data, y_axis_data, font_size_1, font_size_2) {
-        extra_space <- ifelse(x_axis_data[1] > 70, 1, 0)
-        
-        ggplot(data = eie_data) +
-          geom_line(aes(x = mt.seconds / 60, y = eie_data[, 2]), colour = "grey50") +
-          theme_classic() +
-          coord_cartesian(xlim = c(x_axis_data[1] / 60 - extra_space, x_axis_data[2] / 60 + extra_space),
-                          ylim = c(0, 1.5 * y_axis_data[1])) +
-          scale_y_continuous(name = "Ion Counts",
-                             labels = function(x) format(x, scientific = TRUE),
-                             expand = c(0, 0),
-                             breaks = scales::pretty_breaks(n = 10)) +
-          scale_x_continuous(name = "Migration Time (Minutes)",
-                             breaks = scales::pretty_breaks(n = 10)) +
-          ggtitle(paste(label_data[1], " EIE", " (m/z = ", label_data[2], ")", sep = ""),
-                  subtitle = paste("Data File: ", data_files[d])) +
-          geom_ribbon(data = integration_data,
-                      aes(x = mt.seconds / 60, ymax = intensity, ymin = baseline, fill = peak.number),
-                      alpha = 0.4) +
-          geom_text(data = annotation_data,
-                    label = annotation_data$peak.number,
-                    size = font_size_1,
-                    family = "sans",
-                    aes(x = peak.apex.seconds / 60,
-                        y = peak.height.counts + 0.1 * y_axis_data[1])) +
-          geom_text(data = annotation_data,
-                    label = annotation_data$comment,
-                    size = font_size_1,
-                    family = "sans",
-                    aes(x = peak.apex.seconds / 60,
-                        y = peak.height.counts + 0.2 * y_axis_data[1])) +
-          theme(legend.position = "none",
-                text = element_text(size = font_size_2, family = "sans"))
+      plot_function_plotly <- function(eie_data, annotation_data, integration_data, label_data, x_axis_data, y_axis_data) {
+        plot_ly() %>%
+          add_lines(
+            x = ~eie_data[,1] / 60,
+            y = ~eie_data[,2],
+            name = 'Electropherogram',
+            line = list(color = 'grey')
+          ) %>%
+          add_ribbons(
+            x = ~integration_data$mt.seconds / 60,
+            ymin = ~integration_data$baseline,
+            ymax = ~integration_data$intensity,
+            fillcolor = 'rgba(100,100,255,0.4)',
+            line = list(color = 'rgba(100,100,255,0.4)'),
+            name = 'Peak Integration'
+          ) %>%
+          add_text(
+            x = ~annotation_data$peak.apex.seconds / 60,
+            y = ~annotation_data$peak.height.counts + (0.1 * y_axis_data[1]),
+            text = ~annotation_data$peak.number,
+            showlegend = FALSE
+          ) %>%
+          add_text(
+            x = ~annotation_data$peak.apex.seconds / 60,
+            y = ~annotation_data$peak.height.counts + (0.2 * y_axis_data[1]),
+            text = ~annotation_data$comment,
+            showlegend = FALSE
+          ) %>%
+          layout(
+            title = paste(label_data[1], " EIE", " (m/z =", label_data[2], ")"),
+            xaxis = list(title = 'Migration Time (Minutes)'),
+            yaxis = list(title = 'Ion Counts'),
+            template = 'plotly_white',
+            shapes = list(
+              list(
+                type = "line",
+                x0 = 2,  # Initial position of the red line
+                y0 = 0,
+                x1 = 2,
+                y1 = 1,
+                xref = "x",
+                yref = "paper",
+                line = list(color = "Red", width = 2)
+              ),
+              list(
+                type = "line",
+                x0 = 4,  # Initial position of the blue line
+                y0 = 0,
+                x1 = 4,
+                y1 = 1,
+                xref = "x",
+                yref = "paper",
+                line = list(color = "Blue", width = 2)
+              )
+            ), dragmode = "drawline"
+          ) %>% config(editable = TRUE)
       }
       
-      ######3.11.4 Save plots######
-     
+      ######3.11.4 Initialize Saving Locations and Folders######
       
       if (parameters_df$plot.format == "Sample"){
         
         data_files_name <- list.files(path = "mzML Files")
-        data_files_name <- gsub(".mzML", "", data_file_names, fixed = TRUE)
+        data_files_name <- gsub(".mz5", "", data_file_names, fixed = TRUE)
         
         # Create sub-folders
         
@@ -2001,9 +2029,12 @@ server <- function(input, output, session){
         dir.create(path = paste(file_name, "/Plots/", "Analytes", "/", data_files_name[d], sep = ""),
                    showWarnings = TRUE)
         
+        ######3.11.5 Save plots as ggplots######
         # Save Internal Standard Plots
         
-        for (n in 1:num_of_is){
+        plotly_plots <- list()
+        
+      for (n in 1:num_of_is){
           
           folder <- "Internal Standards"
           name <- name_vec[n]
@@ -2022,32 +2053,6 @@ server <- function(input, output, session){
                                       y_axis_data = plot_list[[n]][[6]]),
                  path = paste(file_name, "/Plots/", folder, "/", data_files_name[d], sep = ""))
           
-        }
-        
-        # Save Internal Standard Plots as plotly plots
-        for (n in 1:num_of_is) {
-          folder <- "Internal Standards"
-          name <- name_vec[n]
-          
-          font_size_1 <- 7
-          font_size_2 <- 25
-          
-          plot_obj <- plot_function2(
-            eie_data = plot_list[[n]][[1]], 
-            annotation_data = plot_list[[n]][[2]], 
-            integration_data = plot_list[[n]][[3]],
-            label_data = plot_list[[n]][[4]],
-            x_axis_data = plot_list[[n]][[5]],
-            y_axis_data = plot_list[[n]][[6]],
-            font_size_1 = font_size_1,
-            font_size_2 = font_size_2
-          )
-          
-          #Name plots based on the file being processed and the metabolite
-          plot_name <- paste0(data_files_name[d], "_", name_vec[n])
-          #Convert generated ggplots into plotly functions with ggplotly
-          plotly_objects[[plot_name]] <- ggplotly(plot_obj)
-          #Shadow code: plotly_objects[[n]] <- ggplotly(plot_obj)
         }
         
         # Save Analyte Plots
@@ -2123,102 +2128,7 @@ server <- function(input, output, session){
                    path = paste(file_name, "/Plots/", folder, "/", data_files_name[d], sep = ""))
           }
         }
-      
-        # Save Analyte Plots as Plotly Objects 
-        for (n in (num_of_is + 1):length(name_vec)) {
-
-          folder <- "Analytes"
-          name <- name_vec[n]
-
-          # Analytes using RMT
-          if (mi_df$description[n - num_of_is] != "mi") {
-
-            font_size_1 <- 4
-            font_size_2 <- 12
-
-            is_index <- which(name_vec == mi_df$description[(n - num_of_is)])
-
-            plotly_figure <- subplot(
-              plot_function2(
-                eie_data = plot_list[[n]][[1]],
-                annotation_data = plot_list[[n]][[2]],
-                integration_data = plot_list[[n]][[3]],
-                label_data = plot_list[[n]][[4]],
-                x_axis_data = c(min(eie_df$mt.seconds), max(eie_df$mt.seconds)),
-                y_axis_data = plot_list[[n]][[6]][2],
-                font_size_1 = font_size_1,
-                font_size_2 = font_size_2
-              ),
-              plot_function2(
-                eie_data = plot_list[[n]][[1]],
-                annotation_data = plot_list[[n]][[2]],
-                integration_data = plot_list[[n]][[3]],
-                label_data = plot_list[[n]][[4]],
-                x_axis_data = plot_list[[n]][[5]],
-                y_axis_data = plot_list[[n]][[6]],
-                font_size_1 = font_size_1,
-                font_size_2 = font_size_2
-              ),
-              plot_function2(
-                eie_data = plot_list[[is_index]][[1]],
-                annotation_data = plot_list[[is_index]][[2]],
-                integration_data = plot_list[[is_index]][[3]],
-                label_data = plot_list[[is_index]][[4]],
-                x_axis_data = plot_list[[n]][[5]],
-                y_axis_data = plot_list[[is_index]][[6]],
-                font_size_1 = font_size_1,
-                font_size_2 = font_size_2
-              ),
-              nrows = 3
-            )
-      
-            #Name plots based on the file being processed and the metabolite
-            plot_name <- paste0(data_files_name[d], "_", name_vec[n])
-            #Convert generated ggplots into plotly functions with ggplotly
-            plotly_objects[[plot_name]] <- ggplotly(plotly_figure)
-          }
-
-          #Saving Analytes using MI as plotly objects
-          if (mi_df$description[n - num_of_is] == "mi") {
-
-            font_size_1 <- 4
-            font_size_2 <- 12
-
-            figure_plotly <- subplot(
-              plot_function2(
-                eie_data = plot_list[[n]][[1]],
-                annotation_data = plot_list[[n]][[2]],
-                integration_data = plot_list[[n]][[3]],
-                label_data = plot_list[[n]][[4]],
-                x_axis_data = c(min(eie_df$mt.seconds), max(eie_df$mt.seconds)),
-                y_axis_data = plot_list[[n]][[6]][2],
-                font_size_1 = font_size_1,
-                font_size_2 = font_size_2
-              ),
-              plot_function2(
-                eie_data = plot_list[[n]][[1]],
-                annotation_data = plot_list[[n]][[2]],
-                integration_data = plot_list[[n]][[3]],
-                label_data = plot_list[[n]][[4]],
-                x_axis_data = plot_list[[n]][[5]],
-                y_axis_data = plot_list[[n]][[6]],
-                font_size_1 = font_size_1,
-                font_size_2 = font_size_2
-              ),
-              nrows = 2
-            )
-
-            #Name plots based on the file being processed and the metabolite
-            plot_name <- paste0(data_files_name[d], "_", name_vec[n])
-            #Convert generated ggplots into plotly functions with ggplotly
-            plotly_objects[[plot_name]] <- ggplotly(figure_plotly)
-          }
-        }
-        #Save plotly_objects to reactive varibale plotly_data
-      plotly_data(plotly_objects)
       }
-      
-      
       
       if (parameters_df$plot.format == "Metabolite"){
         
@@ -2226,7 +2136,7 @@ server <- function(input, output, session){
         data_files_name <- list.files(path = "mzML Files")
         data_files_name <- gsub(".mz5", "", data_file_names, fixed = TRUE)
         
-        # Save Internal Standard Plots
+        # Save Plots
         for (n in 1:length(name_vec)){
           
           folder <- name_vec[n]
@@ -2244,35 +2154,187 @@ server <- function(input, output, session){
                                       x_axis_data = plot_list[[n]][[5]],
                                       y_axis_data = plot_list[[n]][[6]]),
                  path = paste(file_name, "/Plots/", folder, "/", sep = ""))
+          
         }
+      }
         
-        #Save plots as editable plotly plots
-        for (n in 1:length(name_vec)) {
-
-          folder <- name_vec[n]
-
-          font_size_1 <- 7
-          font_size_2 <- 25
-
-          plot_plot <- plot_function2(
-            eie_data = plot_list[[n]][[1]],
-            annotation_data = plot_list[[n]][[2]],
-            integration_data = plot_list[[n]][[3]],
-            label_data = plot_list[[n]][[4]],
-            x_axis_data = plot_list[[n]][[5]],
-            y_axis_data = plot_list[[n]][[6]],
-            font_size_1 = font_size_1,
-            font_size_2 = font_size_2
+      #   #Save plots as editable plotly plots
+      #   for (n in 1:length(name_vec)) {
+      # 
+      #     folder <- name_vec[n]
+      # 
+      #     font_size_1 <- 7
+      #     font_size_2 <- 25
+      # 
+      #     plot_plot <- plot_function2(
+      #       eie_data = plot_list[[n]][[1]],
+      #       annotation_data = plot_list[[n]][[2]],
+      #       integration_data = plot_list[[n]][[3]],
+      #       label_data = plot_list[[n]][[4]],
+      #       x_axis_data = plot_list[[n]][[5]],
+      #       y_axis_data = plot_list[[n]][[6]],
+      #       font_size_1 = font_size_1,
+      #       font_size_2 = font_size_2
+      #     )
+      #     
+      #     # Convert generated ggplots into plotly functions with ggplotly
+      #     plotly4 <- ggplotly(plot_plot) %>% config(editable = TRUE)
+      #     
+      #     
+      #     # Name plots based on the file being processed and the metabolite
+      #     plot_name <- paste0(data_files_name[d], "_", name_vec[n])
+      #     
+      #     # Save the plotly object
+      #     plotly_objects[[plot_name]] <- plotly4
+      #   }
+      #   #save data to reactive variable
+      #   plotly_data(plotly_objects)
+      # }
+      # 
+      
+      ######3.11.6 Save plots as editable plotly plots######
+      plot_list[[name_vec[n]]] <- list("eie_data" = eie_df[,c(1,(n + 1))], 
+                                       "annotation_data" = ann_df, 
+                                       "integration_data" = pf_df,
+                                       "label_data" = c(name_vec[n],
+                                                        mz_vec[n]),
+                                       "x_axis_data" = c(start_df[1,n],
+                                                         end_df[num_of_injections,n]),
+                                       "y_axis_data" = c(max(ann_df$peak.height.counts), 
+                                                         max(eie_df[,(n + 1)])))
+      
+      
+        # Save Internal Standard Plots to a list
+        plotly_plots <- lapply(1:num_of_is, function(n) {
+          
+          name <- name_vec[n]
+          
+          # # Extract data for the current plot
+          # eie_data <- plot_list[[n]][[1]]
+          # annotation_data <- plot_list[[n]][[2]]
+          # integration_data <- plot_list[[n]][[3]]
+          # label_data <- plot_list[[n]][[4]]
+          # x_axis_data <- plot_list[[n]][[5]]
+          # y_axis_data <- plot_list[[n]][[6]]
+          
+          plot <- plot_function_plotly(eie_data = plot_list[[n]][[1]], 
+                               annotation_data = plot_list[[n]][[2]], 
+                               integration_data = plot_list[[n]][[3]],
+                               label_data = plot_list[[n]][[4]],
+                               x_axis_data = plot_list[[n]][[5]],
+                               y_axis_data = plot_list[[n]][[6]])
+          
+          # # Create the plot
+          # plot <- plot_function_plotly(
+          #   eie_data = eie_data, 
+          #   annotation_data = annotation_data, 
+          #   integration_data = integration_data,
+          #   label_data = label_data,
+          #   x_axis_data = x_axis_data,
+          #   y_axis_data = y_axis_data
+          # )
+          
+          return(plot)
+        })
+        
+        names(plotly_plots) <- sapply(1:num_of_is, function(n) {
+          paste0(data_files_name[d], "_", name_vec[n])
+        })
+        
+        View(plotly_plots)
+        
+        # # Name plots based on the file being processed and the metabolite
+        # plot_name <- paste0(data_files_name[d], "_", name_vec[n])
+        # 
+        # #Save plotly objects
+        # plotly_objects[[plot_name]] <- plotly_plots[[n]]
+      plotly_objects <- c(plotly_objects, plotly_plots)  
+      
+      
+      View(plotly_objects)  
+      # Save Analyte Plots as Plotly Objects 
+      for (n in (num_of_is + 1):length(name_vec)) {
+        
+        name <- name_vec[n]
+        
+        # Analytes using RMT
+        if (mi_df$description[n - num_of_is] != "mi") {
+          
+          is_index <- which(name_vec == mi_df$description[(n - num_of_is)])
+          
+          plotly_figure <- subplot(
+            plot_function_plotly(
+              eie_data = plot_list[[n]][[1]],
+              annotation_data = plot_list[[n]][[2]],
+              integration_data = plot_list[[n]][[3]],
+              label_data = plot_list[[n]][[4]],
+              x_axis_data = c(min(eie_df$mt.seconds), max(eie_df$mt.seconds)),
+              y_axis_data = plot_list[[n]][[6]][2]
+            ),
+            plot_function_plotly(
+              eie_data = plot_list[[n]][[1]],
+              annotation_data = plot_list[[n]][[2]],
+              integration_data = plot_list[[n]][[3]],
+              label_data = plot_list[[n]][[4]],
+              x_axis_data = plot_list[[n]][[5]],
+              y_axis_data = plot_list[[n]][[6]]
+            ),
+            plot_function_plotly(
+              eie_data = plot_list[[is_index]][[1]],
+              annotation_data = plot_list[[is_index]][[2]],
+              integration_data = plot_list[[is_index]][[3]],
+              label_data = plot_list[[is_index]][[4]],
+              x_axis_data = plot_list[[n]][[5]],
+              y_axis_data = plot_list[[is_index]][[6]]
+            ),
+            nrows = 3
           )
           
-          #Name plots based on the file being processed and the metabolite
+          # Name plots based on the file being processed and the metabolite
           plot_name <- paste0(data_files_name[d], "_", name_vec[n])
-          #Convert generated ggplots into plotly functions with ggplotly
-          plotly_objects[[plot_name]] <- ggplotly(plot_plot)
+          
+          # Save the plotly object
+          plotly_objects[[plot_name]] <- plotly_figure
         }
-        #save data to reactive variable
-        plotly_data(plotly_objects)
+        
+        # Saving Analytes using MI as plotly objects
+        if (mi_df$description[n - num_of_is] == "mi") {
+          
+          plotly3 <- subplot(
+            plot_function_plotly(
+              eie_data = plot_list[[n]][[1]],
+              annotation_data = plot_list[[n]][[2]],
+              integration_data = plot_list[[n]][[3]],
+              label_data = plot_list[[n]][[4]],
+              x_axis_data = c(min(eie_df$mt.seconds), max(eie_df$mt.seconds)),
+              y_axis_data = plot_list[[n]][[6]][2]
+            ),
+            plot_function_plotly(
+              eie_data = plot_list[[n]][[1]],
+              annotation_data = plot_list[[n]][[2]],
+              integration_data = plot_list[[n]][[3]],
+              label_data = plot_list[[n]][[4]],
+              x_axis_data = plot_list[[n]][[5]],
+              y_axis_data = plot_list[[n]][[6]]
+            ),
+            nrows = 2
+          )
+          
+          # Name plots based on the file being processed and the metabolite
+          plot_name <- paste0(data_files_name[d], "_", name_vec[n])
+          
+          # Save the plotly object
+          plotly_objects[[plot_name]] <- plotly3
+        }
       }
+        
+      View(plotly_objects)
+      
+        #Save plotly_objects to reactive varibale plotly_data
+        plotly_data(plotly_objects)
+        
+        #Clear workspace
+        rm(list = c())
       
  
       print("Plotting Complete")
@@ -2333,12 +2395,20 @@ server <- function(input, output, session){
       })
     }#End of loop
     
-
-    
   })#End of main button
   
   #####4. Visualization tab####
   # Populate the file selector with the uploaded files
+  
+  # Reactive expression to store filtered plot names
+  filtered_plot_names <- reactive({
+    req(input$file_selector)
+    plot_names <- names(plotly_data())
+    base_file_name <- sub("\\.mz5$", "", input$file_selector)
+    plot_names[grepl(paste0("^", base_file_name, "_"), plot_names)]
+  })
+  
+  #Function to select files based on uploaded .mz5 files
   observe({
     updateSelectInput(session, "file_selector", choices = uploadedmz5()$FileName)
   })
@@ -2350,26 +2420,22 @@ server <- function(input, output, session){
     plotly_data(plotly_objects)
   })
   
-  
-  # Populate the plot selector based on the selected file
-  observe({
-    req(input$file_selector)
-    plot_names <- names(plotly_data())
-    filtered_plot_names <- plot_names[grepl(input$file_selector, plot_names)]
-    updateSelectInput(session, "plot_selector", choices = filtered_plot_names)
-  })
+  # Populate the plot table
+  output$plot_table <- DT::renderDataTable({
+    data.frame(Plot = filtered_plot_names())
+  }, selection = 'single')
   
   # Render the selected plot
   output$selected_plot <- renderPlotly({
-    req(input$plot_selector)
-    plot <- plotly_data()[[input$plot_selector]]
+    req(input$plot_table_rows_selected)
+    selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
+    plot <- plotly_data()[[selected_plot_name]]
     if (is.null(plot)) {
-    plotly_empty()
-  } else {
-    # Add manual integration markers and lines if they exist
-    plot 
+      plotly_empty()
+    } else {
+      plot
     }
-})
+  })
   
   # Observe manual integration button click
   observeEvent(input$manual_integrate, {
@@ -2384,16 +2450,13 @@ server <- function(input, output, session){
     )
   })
   
-  
+  #Shadowcode
   output$plotly_table <- renderDT({
     plot_names <- names(plotly_data())
     plotly_df <- data.frame(PlotName = plot_names, stringsAsFactors = FALSE)
     datatable(plotly_df, options = list(pageLength = 5))
   })
-  
- 
- 
-    
+
 }#Closing bracket
   
 

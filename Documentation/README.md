@@ -15,7 +15,34 @@ The key differentiating feature of PeakMeister from other currently available so
 4. A table containing the migration times of peaks or expected peak positions
 5. A table containing the peak areas
 
-### Quick Start
+### How to use
+PeakMeister2.0- UI includes the use of a graphical user interface (GUI) run by shiny intended to be used with zero knowledge of code. This requires the user to have [R](https://www.r-project.org/) and [R studio](https://posit.co/download/rstudio-desktop/) installed. PeakMeister2.0 UI requires [R version 4.2](https://mirror.csclub.uwaterloo.ca/CRAN/) or [R version 4.3](https://mirror.csclub.uwaterloo.ca/CRAN/). Due to outdated packages, PeakMeister2.0_UI will not work on R version 4.4.
+
+#### Setting up
+
+1.	Create a new project in R studio. This can be done by clicking the dropdown menu in the top right corner of R studio or clicking File -> New project
+
+2.	In “New Project,” select version control and click “Git – Clone a project from a Git repository”
+
+3.	Select where on your computer you want this project to be stored and paste the following URL: https://github.com/liamthepineapple/PeakMeister2.0_UI.git
+
+4.	This app is designed in a way where you never need to go into the complex code. Open the file titled app.R. This is how you launch the app.
+
+5.	Select all on this page and hit “control-enter” to run all selected lines of code. Alternatively, you can click the “Run app” button in the top right corner of your script. This will initialize the app and install the required packages
+
+6.	Occasionally, the packages “xcms” and “ggpubr” will not install correctly. The user may have to install these manually. To install these packages: 
+
+##### xcms
+```r 
+BiocManager::install(“xcms”)
+library(xcms)
+```
+#### ggpubr
+```r
+install.packages(“ggpubr”)
+library(ggpubr)
+```
+
 
 PeakMeister has only two requirements to get you up and running and all required template files and folders are included in the latest releases:
   * Convert all your data files to open-source mzML files and save them in the folder titled "mzML Files"

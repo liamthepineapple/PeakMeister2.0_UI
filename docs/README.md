@@ -1,11 +1,13 @@
-# PeakMeister
+# **PeakMeister**
 ## Software for Pre-Processing MSI-CE-MS Datasets
 
-### Description
+### **Description**
+***
 
 Multisegment injection-capillary electrophoresis-mass spectrometry (MSI-CE-MS) is a robust analytical technique capable of rapidly acquiring metabolomic data (<4min/sample) via serial injections of samples and quality controls within every analytical run. The high-throughput nature of this platform makes it an attractive technique for large scale metabolomic experiments where keeping costs down and meeting project deadlines are of utmost importance. However, until now, data collected by MSI-CE-MS had to be manually pre-processed by an experienced analyst due to the high migration time variability of CE-MS and the complexity of multiplexed data sets, which reduce the compatibility of this technique with other pre-processing tools. Unfortunately, manually pre-processing data is slow, expensive, and tedious, ultimately decreasing the merits of this technique. Thus, we are introducing PeakMeister, an open-source software written in the R statistical environment for the automated pre-processing of targeted full-scan MSI-CE-MS data.
 
-### Current Features
+### **Current Features**
+***
 
 The key differentiating feature of PeakMeister from other currently available software tools for pre-processing metabolomic datasets is its use of migration indexes to predict the elution time of analytes in MSI-CE-MS datasets. Thus, to achieve correspondence between analytical runs, PeakMeister does not perform migration time alignments or converting the time dimension to electrophoretic mobility. Instead, PeakMeister computes migration indexes for each analyte and uses the migration time of internal standards, or any reliable signals with sufficient signal-to-noise ratios, to compute the migration times of analytes which can then be used for peak annotation and integration. Additionally, as PeakMeister was designed for multiplexed datasets, it also uses the spaces between analytical peaks to confirm and adjust peak annotation, as the gaps between peaks are typically consistent in MSI-CE-MS experiments. Results produced by PeakMeister are saved and include:
 
@@ -15,10 +17,36 @@ The key differentiating feature of PeakMeister from other currently available so
 4. A table containing the migration times of peaks or expected peak positions
 5. A table containing the peak areas
 
-### How to use
+Migration time indexes are determined with the following equations
+
+
+$$
+MTI = \frac{{MT_{Metabolite} - MT_{IS_1}}}{{MT_{IS_2} - MT_{IS_1}}}
+$$ 
+
+
+Where:
+
+1. MTI = The Migration time index
+2. MT~Metabolite~ = Metabolite migration time 
+3. MT~IS1~ = Internal Standard 1 migration time
+4. MT~IS1~ = Internal Standard 2 migration time
+
+MTI's are then used to select peaks based on their predicted migration times (MT's) within a defined time window using the following equation 
+
+$$
+MT_{Metabolite} = MTI \left( (MT_{IS_2}) - (MT_{IS_1}) \right) + (MT_{IS_1})
+$$
+
+Where 
+
+1. MT~Metabolite~ is the predicted migration time of the metabolite
+
+### **How to use**
+***
 PeakMeister2.0- UI includes the use of a graphical user interface (GUI) run by shiny intended to be used with zero knowledge of code. This requires the user to have [R](https://www.r-project.org/) and [R studio](https://posit.co/download/rstudio-desktop/) installed. PeakMeister2.0 UI requires [R version 4.2](https://mirror.csclub.uwaterloo.ca/CRAN/) or [R version 4.3](https://mirror.csclub.uwaterloo.ca/CRAN/). Due to outdated packages, PeakMeister2.0_UI will not work on R version 4.4.
 
-#### Setting up
+#### **Setting up**
 
 1.	Create a new project in R studio. This can be done by clicking the dropdown menu in the top right corner of R studio or clicking File -> New project
 
@@ -32,7 +60,7 @@ PeakMeister2.0- UI includes the use of a graphical user interface (GUI) run by s
 
 6.	Occasionally, the packages “xcms” and “ggpubr” will not install correctly. The user may have to install these manually. To install these packages: 
 
-##### xcms
+#### xcms
 ```r 
 BiocManager::install(“xcms”)
 library(xcms)
@@ -45,16 +73,19 @@ library(ggpubr)
 
 
 PeakMeister has only two requirements to get you up and running and all required template files and folders are included in the latest releases:
-  * Convert all your data files to open-source mzML files and save them in the folder titled "mzML Files"
+  * Convert all your data files to open-source mz5 files using [ProteoWizard](https://proteowizard.sourceforge.io/)
   * Provide a targeted mass list and the corresponding parameters using the provided "Mass List and Parameters.xlsx" template
 
 Use the project file to open the R script titled "code" and execute the script to begin pre-processing your data
 
-### Detailed Usage
+### **Detailed Usage**
+***
 
 Although PeakMeister is a script based software tool, users will typically require little to no knowledge of coding to pre-process their data as an excel sheet containing all pre-processing parameters is provided. In this detailed usage overview, the purpose of each parameters and how they can be manipulated to accurately annotate MSI-CE-MS data will be explained.
 
-##### Sheet 1: Mass List
+#### **Mass List and Paramaters File**
+
+##### Sheet 1: *Mass List*
 
 1. name - Provide a name for each analyte in your study. All names must be unique, so if you have multiple unknown compounds, use names such as Unknown-1, Unknown-2, Unknown-3, etc.
 2. mz - Provide the mass-to-charge to be extracted for each analyte in your study.
@@ -69,7 +100,7 @@ Although PeakMeister is a script based software tool, users will typically requi
 11. smoothing.strength - Smoothing is performed using the "ksmooth" function from the [stats](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/ksmooth.html) package. This parameter sets the bandwidth to be used.
 12. The last columns of of this sheet are where peak migration times for each analyte are to be set. All of these values need to be taken from the same run, including those that will be set for the internal standards in the next sheet.
 
-##### Sheet 2: Reference Mass List
+##### Sheet 2: *Reference Mass List*
 
 For this sheet, I will focus on the sections not discussed above. Features used in this section can be used as landmark peaks that can help predict the migration times of analytes in the previous sheet. These landmark peaks use a separte algorithm for annotation which requires their peak areas to be reliable and always the most intense within the EIE. Thus, internal standards are typically used here, however analytes that are very concentrated in your sample matrix may also be used. 
 
@@ -77,7 +108,7 @@ For this sheet, I will focus on the sections not discussed above. Features used 
 2. min.mt.min - Minimum migration time cutoff. Peaks that elute before this threshold will not be considered as possible reference standard peaks.
 3. max.mt.min - Maximum migration time cutoff. Peaks that elute after this threshold will not be considered as possible reference standard peaks.
 
-##### Sheet 3: Parameters
+##### Sheet 3: *Parameters*
 
 1. number.of.injections - Number of injections used during data acquisition.
 2. ref.mass.one - Lower lock-mass used for accurate mass correction.
@@ -86,6 +117,55 @@ For this sheet, I will focus on the sections not discussed above. Features used 
 5. ref.mass.counts - Minimum peak hight requirement of the lock-mass for correction to be applied.
 6. apply.mass.correction - Should the lock mass correction be applied. Correction will only be applied if "Yes" is set for this parameter.
 7. apply.smoothing - Should smoothing be applied to the EIEs. Smoothing will only be applied if "Yes" is set for this parameter.
+
+#### **App Tabs**
+***
+
+Upon Launching the app, you're taken to a homepage with 6 tabs displayed on the left. The tabs are as following:
+
+##### 1. **About**
+
+This tabs contains information about the app including the detailed README file for how the app works. Tabs are dropdown menus that display information once clicked. The following tabs are present
+
+1. Disclaimer -> provides a disclaimer that this app is still under development
+2. README -> README on how the app works
+3. Updates -> location for any recent updates
+4. License -> Includes MIT license
+
+##### 2. **User Supplied Parameters**
+
+User supplied parameters is the location where an individual will specify the paramaters used in the PeakMeister computations. Users can upload excel files with the required information (supplied in the Sample Files folder) which will automatically populate the data table with the contained information. If a table is not available, users can input their data using the app interface in addition to saving this data to a prelabeled parameters datafile. Uploaded data can also be edited direcly in the table by double clicking column. The tabs are as following
+
+1. Mass List 
+
+Required for computation to run. Will auto-populate when user uploads Mass List and Parameters Excel File. Contains information on the metabolites to be analyzed. 
+
+2. Reference Mass List
+
+Required for computation to run. Will auto-populate when user uploads Mass List and Parameters Excel File. Contains information on refernece internal standrads/masses to use for migration time index calcuations. 
+
+3. Parameters
+
+Required for computation to run. Will auto-populate when user uploads Mass List and Parameters Excel File. Contains information about specific parameters for running the calculation including reference masses, and number of injections. Manual.Indexes will determine if you need to use the User Supplied Migration indexes tab or not
+
+4. Project Information (not currently functional)
+
+Tab for adding basic project metadata. This includes project name, a description of it, a supervisor, and a contact for who is running/analyzing the samples. This will then be incldued into a file thats included with the output results folder
+
+5. User Supplied Migration Indexes
+
+Only required for when users select "Yes" in the Manual.Indexes option in the Parameters tab. Will auto-populate when users upload excel file titled User Supplied Migration Indexes. Provides option for users to supply their own migration time indexes. 
+
+##### 3. **Engine** 
+
+##### 4. **Visualization**
+
+##### 5. **Quality Control**
+
+##### 6. **Reporting**
+
+
+
    
 ### Copyright
 

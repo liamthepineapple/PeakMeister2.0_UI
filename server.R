@@ -24,16 +24,16 @@ server <- function(input, output, session){
   ####1. About tab####
   #Functions for "About" tab page -> reading information from markdown files
   output$disclaimerContent <- renderUI({
-    includeMarkdown("Documentation/DISCLAIMER.md")
+    includeMarkdown("docs/DISCLAIMER.md")
   })
   output$readmeContent <- renderUI({
-    includeMarkdown("Documentation/README.md")
+    includeMarkdown("docs/README.md")
   })
   output$updatesContent <- renderUI({
-    includeMarkdown("Documentation/UPDATES.md")
+    includeMarkdown("docs/UPDATES.md")
   })
   output$licenseContent <- renderUI({
-    includeMarkdown("Documentation/LICENSE.md")
+    includeMarkdown("docs/LICENSE.md")
   })
 ####2. User supplied inputs tab####
  #Load data from user supplied Excel file using sheet names

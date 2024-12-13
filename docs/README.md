@@ -1,4 +1,8 @@
-# **PeakMeister**
+---
+title: "PeakMeister2.0"
+author: "Erick Helmeczi & Liam Surry"
+output: html_document
+---
 ## Software for Pre-Processing MSI-CE-MS Datasets
 
 ### **Description**
@@ -123,7 +127,7 @@ For this sheet, I will focus on the sections not discussed above. Features used 
 
 Upon Launching the app, you're taken to a homepage with 6 tabs displayed on the left. The tabs are as following:
 
-##### 1. **About**
+##### 1. *About*
 
 This tabs contains information about the app including the detailed README file for how the app works. Tabs are dropdown menus that display information once clicked. The following tabs are present
 
@@ -132,7 +136,7 @@ This tabs contains information about the app including the detailed README file 
 3. Updates -> location for any recent updates
 4. License -> Includes MIT license
 
-##### 2. **User Supplied Parameters**
+##### 2. *User Supplied Parameters*
 
 User supplied parameters is the location where an individual will specify the paramaters used in the PeakMeister computations. Users can upload excel files with the required information (supplied in the Sample Files folder) which will automatically populate the data table with the contained information. If a table is not available, users can input their data using the app interface in addition to saving this data to a prelabeled parameters datafile. Uploaded data can also be edited direcly in the table by double clicking column. The tabs are as following
 
@@ -156,13 +160,43 @@ Tab for adding basic project metadata. This includes project name, a description
 
 Only required for when users select "Yes" in the Manual.Indexes option in the Parameters tab. Will auto-populate when users upload excel file titled User Supplied Migration Indexes. Provides option for users to supply their own migration time indexes. 
 
-##### 3. **Engine** 
+##### 3. *Engine*
 
-##### 4. **Visualization**
+This tab is where the major computation is performed. The metaphorical engine of our metaphorical car. This requires .mz5 files to run.Users will click on "Browse" to select a .mz5 file to upload. This file can be stored anywhere on your computer and the app will upload it. When the file is uploaded, shiny stores it until the app is closed. Uploaded files will be displayed in a rendered data table so the user can check the files that they have selected. Once files have been uploaded, users can click the big red button labeled "Initialize Run" which will start the button. This button will not do anything until the uploaded .mz5 files are uploaded and additinoally requires the Mass List and Paramaters to be uploaded. The computation will then be performed on your samples. The run will give the following files/folder:
 
-##### 5. **Quality Control**
+1. Mass List and Parameters (.xlsx)
 
-##### 6. **Reporting**
+A copy of the Mass List and Parameters used for the computation
+
+2. Migration Index Summary (.xlsx)
+
+A table containing the migration indexes or relative migration times used to annotating analytes
+
+3. Plots (folder)
+
+Plots of each extracted ion electropherogram which can be used to check for proper peak annotation and integration
+
+4. Metabolite Migration Times (.xlsx) 
+
+A table containing the migration times of peaks or expected peak positions
+
+5. Metabolite Peak Areas (.xlsx)
+
+A table containing the peak areas
+
+6. plotly_objects (.RData)
+
+A Rdata file containing all generated interactive plotly plots. ALlows for visualization after the app has been closed
+
+7. Data (folder)
+
+Not currently functional. Will be used to save computed Data/metadata for the run
+
+##### 4. *Visualization*
+
+##### 5. *Quality Control*
+
+##### 6. *Reporting*
 
 
 

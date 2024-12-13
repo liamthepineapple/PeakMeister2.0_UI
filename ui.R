@@ -28,7 +28,7 @@ ui <- dashboardPage(
         tabName = "about",
         icon = icon("info-circle")),
       #Paramaters tab -> user supplied mass list and instrument settings
-      menuItem("User Supplied Paramaters",
+      menuItem("User Supplied Parameters",
         tabName = "userparameters",
         icon = icon("screwdriver-wrench")),
       #Engine tab -> where the analysis actually occurs and where users input their datafiles 

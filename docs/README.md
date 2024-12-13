@@ -3,6 +3,8 @@ title: "PeakMeister2.0"
 author: "Erick Helmeczi & Liam Surry"
 output: html_document
 ---
+
+
 ## Software for Pre-Processing MSI-CE-MS Datasets
 
 ### **Description**
@@ -207,6 +209,8 @@ Currently inactive tab
 ##### 6. *Reporting*
 
 Currently inactive tab
+
+### References
 
 
 

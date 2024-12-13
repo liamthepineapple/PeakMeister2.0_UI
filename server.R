@@ -27,7 +27,7 @@ server <- function(input, output, session){
     includeMarkdown("docs/DISCLAIMER.md")
   })
   output$readmeContent <- renderUI({
-    includeMarkdown("docs/README.md")
+    includeMarkdown(rmarkdown::render("docs/README.md"))
   })
   output$updatesContent <- renderUI({
     includeMarkdown("docs/UPDATES.md")

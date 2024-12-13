@@ -278,15 +278,16 @@ ui <- dashboardPage(
                        fileInput("RDatainput", "Uploaded .RData file", accept = c(".RData")),
                        #Button for selecting files -> will subset/filter data to choose plots
                        selectInput("file_selector", "Select File:", choices = NULL),
-                       #Select plots, display plots 
-                       selectInput("plot_selector", "Select Plot:", choices = NULL),
+                       #Select plots, display plots
+                       #selectInput("plot_selector","Select Plot", choices = NULL),
+                       DTOutput("plot_table"),
                        #Display list of plots in small table -> quick check to see if plots 
                        DTOutput("plotly_table"),
                        #Option for manual integration 
                        actionButton("manual_integrate", "Manual Integrate")),
                 #Display selected plot 
                 column(8,
-                       plotlyOutput("selected_plot")
+                       plotlyOutput("selected_plot", height = "600px")
                 )
               )
             )

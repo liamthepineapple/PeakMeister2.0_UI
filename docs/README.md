@@ -33,10 +33,10 @@ $$
 
 Where:
 
-1. MTI = The Migration time index
-2. MT~Metabolite~ = Metabolite migration time 
-3. MT~IS1~ = Internal Standard 1 migration time
-4. MT~IS1~ = Internal Standard 2 migration time
+1. $MTI$ = The Migration time index
+2. $MT_{Metabolite}$ = Metabolite migration time 
+3. $MT_{IS_1}$ = Internal Standard 1 migration time
+4. $MT_{IS_1}$ = Internal Standard 2 migration time
 
 MTI's are then used to select peaks based on their predicted migration times (MT's) within a defined time window using the following equation 
 
@@ -46,7 +46,7 @@ $$
 
 Where 
 
-1. MT~Metabolite~ is the predicted migration time of the metabolite
+1. $MT_{Metabolite}$ is the predicted migration time of the metabolite
 
 ### **How to use**
 ***

@@ -1,6 +1,7 @@
 ---
 title: "PeakMeister2.0"
 author: "Erick Helmeczi & Liam Surry"
+bibliography: bibliography.bib
 output: html_document
 ---
 
@@ -47,6 +48,8 @@ $$
 Where 
 
 1. $MT_{Metabolite}$ is the predicted migration time of the metabolite
+
+This app would no be possible without (@helmeczi_software_2024), (@deutsch_file_2012), and (@wilhelm_mz5_2011)
 
 ### **How to use**
 ***
@@ -210,12 +213,9 @@ Currently inactive tab
 
 Currently inactive tab
 
-### References
-
-
-
-   
 ### Copyright
 
 PeakMeister is licensed under the [MIT](https://choosealicense.com/licenses/mit/) license
+
+### References
 

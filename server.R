@@ -15,11 +15,7 @@ server <- function(input, output, session){
   
   plotly_test <- reactiveVal(list())
   # Reactive values to store marker positions
-  reactive_vals <- reactiveValues(
-    selected_point = list(x =14, y = NULL),  # Set initial values
-    selected_point2 = list(x = 15, y = NULL),
-    selected_marker = NULL # Set initial values
-  )
+  line_positions <- reactiveValues(red = 2, blue = 4)
   
   ####1. About tab####
   #Functions for "About" tab page -> reading information from markdown files
@@ -1804,7 +1800,7 @@ server <- function(input, output, session){
           }
         }
       }
-      
+       
       # Combine internal standard and metabolite data frames for plotting
       
       peaks_df <- cbind(is_peaks_df, metabolite_peaks_df)
@@ -1982,9 +1978,9 @@ server <- function(input, output, session){
             shapes = list(
               list(
                 type = "line",
-                x0 = 2,  # Initial position of the red line
+                x0 = line_positions$red,  # Reactive position of the red line
                 y0 = 0,
-                x1 = 2,
+                x1 = line_positions$red,
                 y1 = 1,
                 xref = "x",
                 yref = "paper",
@@ -1992,9 +1988,9 @@ server <- function(input, output, session){
               ),
               list(
                 type = "line",
-                x0 = 4,  # Initial position of the blue line
+                x0 = line_positions$blue,  # Reactive position of the blue line
                 y0 = 0,
-                x1 = 4,
+                x1 = line_positions$blue,
                 y1 = 1,
                 xref = "x",
                 yref = "paper",
@@ -2450,12 +2446,35 @@ server <- function(input, output, session){
     )
   })
   
+  observeEvent(event_data("plotly_relayout"), {
+    relayout_data <- event_data("plotly_relayout")
+    
+    if (!is.null(relayout_data[["shapes[0].x0"]])) {
+      line_positions$red <- relayout_data[["shapes[0].x0"]]
+    }
+    
+    if (!is.null(relayout_data[["shapes[1].x0"]])) {
+      line_positions$blue <- relayout_data[["shapes[1].x0"]]
+    }
+  })
+  
+  
   #Shadowcode
   output$plotly_table <- renderDT({
     plot_names <- names(plotly_data())
     plotly_df <- data.frame(PlotName = plot_names, stringsAsFactors = FALSE)
     datatable(plotly_df, options = list(pageLength = 5))
   })
+  
+  
+  output$red_line_position <- renderText({
+    paste("Red Line Position:", line_positions$red)
+  })
+  
+  output$blue_line_position <- renderText({
+    paste("Blue Line Position:", line_positions$blue)
+  })
+  
 
 }#Closing bracket
   

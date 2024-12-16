@@ -80,6 +80,7 @@ install.packages(“ggpubr”)
 library(ggpubr)
 ```
 
+Note: The user may require [Rtools](https://cran.r-project.org/bin/windows/Rtools/) to be installed which must be the same as the version of R installed.
 
 PeakMeister has only two requirements to get you up and running and all required template files and folders are included in the latest releases:
   * Convert all your data files to open-source mz5 files using [ProteoWizard](https://proteowizard.sourceforge.io/)

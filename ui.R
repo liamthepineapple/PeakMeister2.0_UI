@@ -287,7 +287,10 @@ ui <- dashboardPage(
                        actionButton("manual_integrate", "Manual Integrate")),
                 #Display selected plot 
                 column(8,
-                       plotlyOutput("selected_plot", height = "600px")
+                       plotlyOutput("selected_plot", height = "600px"),
+                       #Line positions
+                       textOutput("red_line_position"),
+                       textOutput("blue_line_position")
                 )
               )
             )

@@ -257,7 +257,9 @@ ui <- dashboardPage(
                    #File upload button
                    fileInput("mz5Files", "Upload .mz5 Files", accept = c(".mz5"), multiple = TRUE),
                    #Display uploaded files in table 
-                   DT::dataTableOutput("fileTable")
+                   DT::dataTableOutput("fileTable"),
+                   #Clear uploaded files
+                  actionButton("clearFiles", "Clear Files"),
             )
           )
         ),
@@ -278,19 +280,24 @@ ui <- dashboardPage(
                        fileInput("RDatainput", "Uploaded .RData file", accept = c(".RData")),
                        #Button for selecting files -> will subset/filter data to choose plots
                        selectInput("file_selector", "Select File:", choices = NULL),
+                       #Select results folder to work out of 
+                       selectInput("results_folder", "Select Results Folder:", choices = NULL),
+                      
                        #Select plots, display plots
                        #selectInput("plot_selector","Select Plot", choices = NULL),
                        DTOutput("plot_table"),
                        #Display list of plots in small table -> quick check to see if plots 
-                       DTOutput("plotly_table"),
-                       #Option for manual integration 
+                       #DTOutput("plotly_table"),
+                       
                        actionButton("manual_integrate", "Manual Integrate")),
                 #Display selected plot 
                 column(8,
                        plotlyOutput("selected_plot", height = "600px"),
                        #Line positions
                        textOutput("red_line_position"),
-                       textOutput("blue_line_position")
+                       textOutput("blue_line_position"),textOutput("extracted_plotname"),
+                       #Data table for peak positions
+                       DTOutput("peak_info_table"),
                 )
               )
             )

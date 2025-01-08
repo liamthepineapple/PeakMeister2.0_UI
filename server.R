@@ -460,6 +460,12 @@ server <- function(input, output, session){
       DT::datatable(uploadedmz5(), options = list(pageLength = 5))
     })
   })
+  
+  #Clear uploaded files
+  observeEvent(input$clearFiles, {
+    # Clear the uploaded files
+    uploadedmz5(data.frame(FileName = character(), FilePath = character(), stringsAsFactors = FALSE))
+  })
 
 
   
@@ -2153,40 +2159,6 @@ server <- function(input, output, session){
           
         }
       }
-        
-      #   #Save plots as editable plotly plots
-      #   for (n in 1:length(name_vec)) {
-      # 
-      #     folder <- name_vec[n]
-      # 
-      #     font_size_1 <- 7
-      #     font_size_2 <- 25
-      # 
-      #     plot_plot <- plot_function2(
-      #       eie_data = plot_list[[n]][[1]],
-      #       annotation_data = plot_list[[n]][[2]],
-      #       integration_data = plot_list[[n]][[3]],
-      #       label_data = plot_list[[n]][[4]],
-      #       x_axis_data = plot_list[[n]][[5]],
-      #       y_axis_data = plot_list[[n]][[6]],
-      #       font_size_1 = font_size_1,
-      #       font_size_2 = font_size_2
-      #     )
-      #     
-      #     # Convert generated ggplots into plotly functions with ggplotly
-      #     plotly4 <- ggplotly(plot_plot) %>% config(editable = TRUE)
-      #     
-      #     
-      #     # Name plots based on the file being processed and the metabolite
-      #     plot_name <- paste0(data_files_name[d], "_", name_vec[n])
-      #     
-      #     # Save the plotly object
-      #     plotly_objects[[plot_name]] <- plotly4
-      #   }
-      #   #save data to reactive variable
-      #   plotly_data(plotly_objects)
-      # }
-      # 
       
       ######3.11.6 Save plots as editable plotly plots######
       plot_list[[name_vec[n]]] <- list("eie_data" = eie_df[,c(1,(n + 1))], 
@@ -2205,13 +2177,6 @@ server <- function(input, output, session){
           
           name <- name_vec[n]
           
-          # # Extract data for the current plot
-          # eie_data <- plot_list[[n]][[1]]
-          # annotation_data <- plot_list[[n]][[2]]
-          # integration_data <- plot_list[[n]][[3]]
-          # label_data <- plot_list[[n]][[4]]
-          # x_axis_data <- plot_list[[n]][[5]]
-          # y_axis_data <- plot_list[[n]][[6]]
           
           plot <- plot_function_plotly(eie_data = plot_list[[n]][[1]], 
                                annotation_data = plot_list[[n]][[2]], 
@@ -2220,15 +2185,6 @@ server <- function(input, output, session){
                                x_axis_data = plot_list[[n]][[5]],
                                y_axis_data = plot_list[[n]][[6]])
           
-          # # Create the plot
-          # plot <- plot_function_plotly(
-          #   eie_data = eie_data, 
-          #   annotation_data = annotation_data, 
-          #   integration_data = integration_data,
-          #   label_data = label_data,
-          #   x_axis_data = x_axis_data,
-          #   y_axis_data = y_axis_data
-          # )
           
           return(plot)
         })
@@ -2239,15 +2195,11 @@ server <- function(input, output, session){
         
         View(plotly_plots)
         
-        # # Name plots based on the file being processed and the metabolite
-        # plot_name <- paste0(data_files_name[d], "_", name_vec[n])
-        # 
-        # #Save plotly objects
-        # plotly_objects[[plot_name]] <- plotly_plots[[n]]
       plotly_objects <- c(plotly_objects, plotly_plots)  
       
       
-      View(plotly_objects)  
+      View(plotly_objects) 
+      
       # Save Analyte Plots as Plotly Objects 
       for (n in (num_of_is + 1):length(name_vec)) {
         
@@ -2394,8 +2346,24 @@ server <- function(input, output, session){
   })#End of main button
   
   #####4. Visualization tab####
-  # Populate the file selector with the uploaded files
   
+  ######4.1 Define reactive expressions###### 
+  # Reactive expression to store the path to the selected results folder. Required to grab the correct annotation_data information from the subsequent runs and useful for processing data if you have closed the app.
+  plot_list_data <- reactive({
+  main_folder <- reactive({
+    req(input$results_folder)
+    input$results_folder
+  })
+  
+  # Reactive expression to load the correct plot_list_data.RData file. 
+    req(main_folder(), input$file_selector)
+    file_name <- input$file_selector
+    subfolder_path <- file.path(main_folder(), "Data", file_name)
+    load(file.path(subfolder_path, "plot_list_data.RData"))
+    return(list(plot_list = plot_list, peaks_df = peaks_df, peak_mt_df = peak_mt_df, peak_area_df = peak_area_df))
+  })
+  
+  # Populate the file selector with the uploaded files
   # Reactive expression to store filtered plot names
   filtered_plot_names <- reactive({
     req(input$file_selector)
@@ -2403,6 +2371,8 @@ server <- function(input, output, session){
     base_file_name <- sub("\\.mz5$", "", input$file_selector)
     plot_names[grepl(paste0("^", base_file_name, "_"), plot_names)]
   })
+  
+  ######4.2 Environmental initialization: File upload, and folder selection######
   
   #Function to select files based on uploaded .mz5 files
   observe({
@@ -2416,6 +2386,14 @@ server <- function(input, output, session){
     plotly_data(plotly_objects)
   })
   
+  # List all "Results" folders in the main directory
+  observe({
+    results_folders <- list.dirs(path = ".", full.names = TRUE, recursive = FALSE)
+    results_folders <- results_folders[grepl("Results", results_folders)]
+    updateSelectInput(session, "results_folder", choices = results_folders)
+  })
+  
+  ######4.3 Render and display plots and annotation information######
   # Populate the plot table
   output$plot_table <- DT::renderDataTable({
     data.frame(Plot = filtered_plot_names())
@@ -2433,19 +2411,7 @@ server <- function(input, output, session){
     }
   })
   
-  # Observe manual integration button click
-  observeEvent(input$manual_integrate, {
-    showModal(
-      modalDialog(
-        title = "Select a Region",
-        plotlyOutput("region_select"),
-        footer = actionButton("confirm_region", "Confirm Region"),
-        size = "l",
-        easyClose = TRUE
-      )   
-    )
-  })
-  
+  #Functions for dealing with moveable lines on plotlyplots
   observeEvent(event_data("plotly_relayout"), {
     relayout_data <- event_data("plotly_relayout")
     
@@ -2458,15 +2424,7 @@ server <- function(input, output, session){
     }
   })
   
-  
-  #Shadowcode
-  output$plotly_table <- renderDT({
-    plot_names <- names(plotly_data())
-    plotly_df <- data.frame(PlotName = plot_names, stringsAsFactors = FALSE)
-    datatable(plotly_df, options = list(pageLength = 5))
-  })
-  
-  
+  #Display line positions 
   output$red_line_position <- renderText({
     paste("Red Line Position:", line_positions$red)
   })
@@ -2474,6 +2432,43 @@ server <- function(input, output, session){
   output$blue_line_position <- renderText({
     paste("Blue Line Position:", line_positions$blue)
   })
+  
+  # Render the annotation data table associated with selecetd plot
+  output$peak_info_table <- DT::renderDataTable({
+    req(input$plot_table_rows_selected)
+    selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
+    
+    # Extract the base file name from the selected .mz5 file
+    base_file_name <- sub("\\.mz5$", "", input$file_selector)
+    
+    # Remove the base file name from the selected plot name to get the plot name
+    plotname <- sub(paste0("^", base_file_name, "_"), "", selected_plot_name)
+    
+    plot_list <- plot_list_data()$plot_list
+    
+    # Ensure the plotname exists in the plot_list
+    if (plotname %in% names(plot_list)) {
+      annotation_data <- plot_list[[plotname]]$annotation_data
+      annotation_data
+    } else {
+      data.frame()  # Return an empty data frame if the plotname is not found
+    }
+  })
+  
+  
+  # # Observe manual integration button click
+  # observeEvent(input$manual_integrate, {
+  #   showModal(
+  #     modalDialog(
+  #       title = "Select a Region",
+  #       plotlyOutput("region_select"),
+  #       footer = actionButton("confirm_region", "Confirm Region"),
+  #       size = "l",
+  #       easyClose = TRUE
+  #     )   
+  #   )
+  # })
+  #  
   
 
 }#Closing bracket

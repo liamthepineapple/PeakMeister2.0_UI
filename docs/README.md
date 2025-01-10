@@ -202,9 +202,11 @@ Not currently functional. Will be used to save computed Data/metadata for the ru
 
 This tab is where users can view their results in an interactive plot format. Requires users to have uploaded their .mz5 files in the "Engine" tab. When this computation it run, it will automatically store the plots into the apps memory. These plots will remain until the app is closed. However, each run generates a .RData file called "plotly_objects" that store the information required for the plots. Users can click the "Browse" button under the "Uploaded .Rdata file" section whcih will allow users to upload the plots to the app. 
 
-.mz5 files will be shown under the "Select File:" dropdown menu. This allows users to switch between different files. Upon selecting a file, a data table will be displayed which will have a list of plots generated  from the specific selected file. Users can click a plot in the table which will cause it to display on the screen. The Red and Blue lines displayed can be dragged across the plot and will be used to highlight area to re-integrate a peak (Not implemented yet)
+.mz5 files will be shown under the "Select File:" dropdown menu. This allows users to switch between different files. Upon selecting a file, a data table will be displayed which will have a list of plots generated  from the specific selected file. Users can click a plot in the table which will cause it to display on the screen with its associated peak information. Users can select multiple peaks in this table to delete by clicking the rows on the table and selecting "Delete Selected Peaks." This will change the metadata associated with the plot. Deleted peaks are replaced with the label "NPD" or "No peak detected." If the user accidentally deletes the wrong peak, a button exists for undoing this deletion, which remembers the original data before "Delete Selected Peaks" is clicked.
 
-A third table is diaplyed at the bottom that shows the contents of all plotly plots loaded into the app. This is used as a control measure to check to see the plotly obejcts are getting uploaded correctly.
+The Red and Blue lines displayed can be dragged across the plot and will be used to highlight area to re-integrate a peak (Not implemented yet)
+
+
 
 ##### 5. *Quality Control*
 

@@ -2470,7 +2470,7 @@ server <- function(input, output, session){
     } else {
       data.frame()  # Return an empty data frame if the plotname is not found
     }
-  }, selection = 'single')
+  }, selection = 'multiple')
   
   
   ######4.4 Delete Peaks and Update Metadata######
@@ -2502,7 +2502,7 @@ server <- function(input, output, session){
     previous_metadata$peak_mt_df <- run_metadata$peak_mt_df
     previous_metadata$peak_area_df <- run_metadata$peak_area_df
     
-    selected_row <- input$peak_info_table_rows_selected
+    selected_rows <- input$peak_info_table_rows_selected
     
     # Extract the current annotation_data
     selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
@@ -2513,45 +2513,48 @@ server <- function(input, output, session){
     if (plotname %in% names(plot_list)) {
       annotation_data <- plot_list[[plotname]]$annotation_data
       
-      # Get the peak.number from the selected row
-      peak_number <- annotation_data$peak.number[selected_row]
-      
-      # Update the comment column for the selected peak
-      annotation_data$comment[selected_row] <- "NPD"
+      # Loop through each selected row
+      for (selected_row in selected_rows) {
+        # Get the peak.number from the selected row
+        peak_number <- annotation_data$peak.number[selected_row]
+        
+        # Update the comment column for the selected peak
+        annotation_data$comment[selected_row] <- "NPD"
+        
+        # Update the comment_df
+        comment_df <- run_metadata$comment_df
+        
+        # Update the corresponding cell in comment_df
+        if (plotname %in% colnames(run_metadata$comment_df)) {
+          run_metadata$comment_df[peak_number, plotname] <- "NPD"
+        }
+      }
       
       # Update the plot_list with the modified annotation_data
       plot_list[[plotname]]$annotation_data <- annotation_data
       
       # Update the reactive plot_list_data
       run_metadata$plot_list <- plot_list
+      run_metadata$comment_df <- comment_df
       
       # Update the peak_info_table to reflect the changes
       output$peak_info_table <- DT::renderDataTable({
         annotation_data
-      }, selection = 'single')
+      }, selection = 'multiple')
       
-      # Update the comment_df
+      # Extract objects from run_metadata
+      plot_list <- run_metadata$plot_list
       comment_df <- run_metadata$comment_df
+      peaks_df <- run_metadata$peaks_df
+      peak_mt_df <- run_metadata$peak_mt_df
+      peak_area_df <- run_metadata$peak_area_df
       
-      # Ensure the column for the plotname exists in comment_df
-      if (plotname %in% colnames(comment_df)) {
-        # Update the corresponding cell in comment_df
-        comment_df[peak_number, plotname] <- "NPD"
-        run_metadata$comment_df <- comment_df
-        
-        # Extract objects from run_metadata
-        plot_list <- run_metadata$plot_list
-        comment_df <- run_metadata$comment_df
-        peaks_df <- run_metadata$peaks_df
-        peak_mt_df <- run_metadata$peak_mt_df
-        peak_area_df <- run_metadata$peak_area_df
-        
-        # Save the updated data back to the file
-        subfolder_path <- file.path(input$results_folder, "Data", run_metadata$file_name)
-        save(plot_list, comment_df, peaks_df, peak_mt_df, peak_area_df, file = file.path(subfolder_path, "plot_list_data.RData"))
-      } 
+      # Save the updated data back to the file
+      subfolder_path <- file.path(input$results_folder, "Data", run_metadata$file_name)
+      save(plot_list, comment_df, peaks_df, peak_mt_df, peak_area_df, file = file.path(subfolder_path, "plot_list_data.RData"))
     }
   })
+  
   
   #Undo button for undoing an accidental deletion of a peak
   observeEvent(input$undo, {
@@ -2576,7 +2579,7 @@ server <- function(input, output, session){
       } else {
         data.frame()  # Return an empty data frame if the plotname is not found
       }
-    }, selection = 'single')
+    }, selection = 'multiple')
     
     output$comment_df_table <- DT::renderDataTable({
       run_metadata$comment_df
@@ -2594,6 +2597,9 @@ server <- function(input, output, session){
     save(plot_list, comment_df, peaks_df, peak_mt_df, peak_area_df, file = file.path(subfolder_path, "plot_list_data.RData"))
   })
 
+  
+  
+  
   # # Observe manual integration button click
   # observeEvent(input$manual_integrate, {
   #   showModal(

@@ -301,7 +301,9 @@ ui <- dashboardPage(
                        #Action button for deleting peaks
                        actionButton("delete_peak", "Delete Selected Peaks"),
                        #Action button for undoing peak deletion
-                       actionButton("undo", "Undo Peak Deletion")
+                       actionButton("undo", "Undo Peak Deletion"),
+                       #Action button for regenerating plots
+                       actionButton("regenerateplots", "Regenerate Changed Plots")
                 )
               )
             )

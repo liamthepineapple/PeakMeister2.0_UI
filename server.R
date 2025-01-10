@@ -17,6 +17,9 @@ server <- function(input, output, session){
   # Reactive values to store marker positions
   line_positions <- reactiveValues(red = 2, blue = 4)
   
+ 
+  
+  
   ####1. About tab####
   #Functions for "About" tab page -> reading information from markdown files
   output$disclaimerContent <- renderUI({
@@ -1823,8 +1826,6 @@ server <- function(input, output, session){
 
       print("Peak Picking and Filtering for Analytes Complete")
       
-      View(comment_df)
-      
       #####3.11 Plotting#####
       #Update progress bar
       incProgress(1/total_steps, detail = paste("Plotting & Exporting Electropherograms"))
@@ -1905,9 +1906,9 @@ server <- function(input, output, session){
                                                            max(eie_df[,(n + 1)])))
         
       }
-    
+      
       # Save the entire plot_list to a .RData file in the subfolder as well as peaks_df
-      save(plot_list, peaks_df,peak_mt_df,peak_area_df, file = file.path(subfolder_path, "plot_list_data.RData"))
+      save(plot_list, peaks_df,peak_mt_df,peak_area_df, comment_df, file = file.path(subfolder_path, "plot_list_data.RData"))
       
       ######3.11.2 Create plot function for ggplots######
       plot_function <- function(eie_data, annotation_data, integration_data, label_data, x_axis_data, y_axis_data){
@@ -1984,9 +1985,9 @@ server <- function(input, output, session){
             shapes = list(
               list(
                 type = "line",
-                x0 = line_positions$red,  # Reactive position of the red line
+                x0 = 2,  # Initial position of the red line
                 y0 = 0,
-                x1 = line_positions$red,
+                x1 = 2,
                 y1 = 1,
                 xref = "x",
                 yref = "paper",
@@ -1994,15 +1995,15 @@ server <- function(input, output, session){
               ),
               list(
                 type = "line",
-                x0 = line_positions$blue,  # Reactive position of the blue line
+                x0 = 4,  # Initial position of the blue line
                 y0 = 0,
-                x1 = line_positions$blue,
+                x1 = 4,
                 y1 = 1,
                 xref = "x",
                 yref = "paper",
                 line = list(color = "Blue", width = 2)
               )
-            ), dragmode = "drawline"
+            )
           ) %>% config(editable = TRUE)
       }
       
@@ -2036,7 +2037,7 @@ server <- function(input, output, session){
         
         plotly_plots <- list()
         
-      for (n in 1:num_of_is){
+        for (n in 1:num_of_is){
           
           folder <- "Internal Standards"
           name <- name_vec[n]
@@ -2172,33 +2173,26 @@ server <- function(input, output, session){
                                                          max(eie_df[,(n + 1)])))
       
       
-        # Save Internal Standard Plots to a list
-        plotly_plots <- lapply(1:num_of_is, function(n) {
-          
-          name <- name_vec[n]
-          
-          
-          plot <- plot_function_plotly(eie_data = plot_list[[n]][[1]], 
-                               annotation_data = plot_list[[n]][[2]], 
-                               integration_data = plot_list[[n]][[3]],
-                               label_data = plot_list[[n]][[4]],
-                               x_axis_data = plot_list[[n]][[5]],
-                               y_axis_data = plot_list[[n]][[6]])
-          
-          
-          return(plot)
-        })
+      # Save Internal Standard Plots to a list
+      plotly_plots <- lapply(1:num_of_is, function(n) {
         
-        names(plotly_plots) <- sapply(1:num_of_is, function(n) {
-          paste0(data_files_name[d], "_", name_vec[n])
-        })
+        name <- name_vec[n]
         
-        View(plotly_plots)
+        plot <- plot_function_plotly(eie_data = plot_list[[n]][[1]], 
+                                     annotation_data = plot_list[[n]][[2]], 
+                                     integration_data = plot_list[[n]][[3]],
+                                     label_data = plot_list[[n]][[4]],
+                                     x_axis_data = plot_list[[n]][[5]],
+                                     y_axis_data = plot_list[[n]][[6]])
         
+        return(plot)
+      })
+      
+      names(plotly_plots) <- sapply(1:num_of_is, function(n) {
+        paste0(data_files_name[d], "_", name_vec[n])
+      })
+
       plotly_objects <- c(plotly_objects, plotly_plots)  
-      
-      
-      View(plotly_objects) 
       
       # Save Analyte Plots as Plotly Objects 
       for (n in (num_of_is + 1):length(name_vec)) {
@@ -2275,17 +2269,17 @@ server <- function(input, output, session){
           plotly_objects[[plot_name]] <- plotly3
         }
       }
-        
-      View(plotly_objects)
       
-        #Save plotly_objects to reactive varibale plotly_data
-        plotly_data(plotly_objects)
-        
-        #Clear workspace
-        rm(list = c())
       
- 
+      #Save plotly_objects to reactive varibale plotly_data
+      plotly_data(plotly_objects)
+      
+      #Clear workspace
+      rm(list = c())
+      
+      
       print("Plotting Complete")
+      
       
       #####3.12 Export Data#####
       
@@ -2348,6 +2342,7 @@ server <- function(input, output, session){
   #####4. Visualization tab####
   
   ######4.1 Define reactive expressions###### 
+  
   # Reactive expression to store the path to the selected results folder. Required to grab the correct annotation_data information from the subsequent runs and useful for processing data if you have closed the app.
   plot_list_data <- reactive({
   main_folder <- reactive({
@@ -2360,8 +2355,9 @@ server <- function(input, output, session){
     file_name <- input$file_selector
     subfolder_path <- file.path(main_folder(), "Data", file_name)
     load(file.path(subfolder_path, "plot_list_data.RData"))
-    return(list(plot_list = plot_list, peaks_df = peaks_df, peak_mt_df = peak_mt_df, peak_area_df = peak_area_df))
+    return(list(plot_list = plot_list, peaks_df = peaks_df, peak_mt_df = peak_mt_df, peak_area_df = peak_area_df, comment_df = comment_df))
   })
+
   
   # Populate the file selector with the uploaded files
   # Reactive expression to store filtered plot names
@@ -2453,9 +2449,84 @@ server <- function(input, output, session){
     } else {
       data.frame()  # Return an empty data frame if the plotname is not found
     }
+  }, selection = 'single')
+  
+  
+  ######4.4 Delete Peaks and Update Metadata######
+  
+  # Define reactive values for storing information from plot_list_data.Rdata
+  run_metadata <- reactiveValues(comment_df = NULL, plot_list = NULL, peaks_df = NULL, peak_mt_df = NULL, peak_area_df = NULL)
+  
+  # Load data and initialize reactive values
+  observe({
+    req(input$results_folder, input$file_selector)
+    file_name <- input$file_selector
+    subfolder_path <- file.path(input$results_folder, "Data", file_name)
+    load(file.path(subfolder_path, "plot_list_data.RData"))
+    
+    # Initialize reactive values (required to save metadata to plot_list_data.Rdata)
+    run_metadata$comment_df <- comment_df
+    run_metadata$plot_list <- plot_list
+    run_metadata$file_name <- file_name
+    run_metadata$peaks_df <- peaks_df
+    run_metadata$peak_mt_df <- peak_mt_df
+    run_metadata$peak_area_df <- peak_area_df
   })
   
-  
+  # Observe the delete peak action
+  observeEvent(input$delete_peak, {
+    req(input$peak_info_table_rows_selected)
+    selected_row <- input$peak_info_table_rows_selected
+    
+    # Extract the current annotation_data
+    selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
+    base_file_name <- sub("\\.mz5$", "", input$file_selector)
+    plotname <- sub(paste0("^", base_file_name, "_"), "", selected_plot_name)
+    plot_list <- run_metadata$plot_list
+    
+    if (plotname %in% names(plot_list)) {
+      annotation_data <- plot_list[[plotname]]$annotation_data
+      
+      # Get the peak.number from the selected row
+      peak_number <- annotation_data$peak.number[selected_row]
+      
+      # Update the comment column for the selected peak
+      annotation_data$comment[selected_row] <- "NPD"
+      
+      # Update the plot_list with the modified annotation_data
+      plot_list[[plotname]]$annotation_data <- annotation_data
+      
+      # Update the reactive plot_list_data
+      run_metadata$plot_list <- plot_list
+      
+      # Update the peak_info_table to reflect the changes
+      output$peak_info_table <- DT::renderDataTable({
+        annotation_data
+      }, selection = 'single')
+      
+      # Update the comment_df
+      comment_df <- run_metadata$comment_df
+      
+      # Ensure the column for the plotname exists in comment_df
+      if (plotname %in% colnames(comment_df)) {
+        # Update the corresponding cell in comment_df
+        comment_df[peak_number, plotname] <- "NPD"
+        run_metadata$comment_df <- comment_df
+        
+        # Extract objects from run_metadata
+        plot_list <- run_metadata$plot_list
+        comment_df <- run_metadata$comment_df
+        peaks_df <- run_metadata$peaks_df
+        peak_mt_df <- run_metadata$peak_mt_df
+        peak_area_df <- run_metadata$peak_area_df
+        
+        # Save the updated data back to the file
+        subfolder_path <- file.path(input$results_folder, "Data", run_metadata$file_name)
+        save(plot_list, comment_df, peaks_df, peak_mt_df, peak_area_df, file = file.path(subfolder_path, "plot_list_data.RData"))
+      } 
+    }
+  })
+
   # # Observe manual integration button click
   # observeEvent(input$manual_integrate, {
   #   showModal(

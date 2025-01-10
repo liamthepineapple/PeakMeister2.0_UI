@@ -295,9 +295,11 @@ ui <- dashboardPage(
                        plotlyOutput("selected_plot", height = "600px"),
                        #Line positions
                        textOutput("red_line_position"),
-                       textOutput("blue_line_position"),textOutput("extracted_plotname"),
+                       textOutput("blue_line_position"),textOutput("triangle_position"),
                        #Data table for peak positions
                        DTOutput("peak_info_table"),
+                       #Action button for deleting peaks
+                       actionButton("delete_peak", "Delete Selected Peaks"),
                 )
               )
             )

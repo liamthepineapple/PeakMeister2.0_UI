@@ -2368,6 +2368,12 @@ server <- function(input, output, session){
     plot_names[grepl(paste0("^", base_file_name, "_"), plot_names)]
   })
   
+  # Define reactive values for storing information from plot_list_data.Rdata
+  run_metadata <- reactiveValues(comment_df = NULL, plot_list = NULL, peaks_df = NULL, peak_mt_df = NULL, peak_area_df = NULL)
+  
+  #Define reactive expression to store unaltered peak information to allow users to undo a deletion if a peak is deleted accidentally 
+  previous_metadata <- reactiveValues(comment_df = NULL, plot_list = NULL, peaks_df = NULL, peak_mt_df = NULL, peak_area_df = NULL)
+  
   ######4.2 Environmental initialization: File upload, and folder selection######
   
   #Function to select files based on uploaded .mz5 files
@@ -2469,9 +2475,6 @@ server <- function(input, output, session){
   
   ######4.4 Delete Peaks and Update Metadata######
   
-  # Define reactive values for storing information from plot_list_data.Rdata
-  run_metadata <- reactiveValues(comment_df = NULL, plot_list = NULL, peaks_df = NULL, peak_mt_df = NULL, peak_area_df = NULL)
-  
   # Load data and initialize reactive values
   observe({
     req(input$results_folder, input$file_selector)
@@ -2488,9 +2491,17 @@ server <- function(input, output, session){
     run_metadata$peak_area_df <- peak_area_df
   })
   
-  # Observe the delete peak action
+  #Server logic for deleting peaks in plots
   observeEvent(input$delete_peak, {
     req(input$peak_info_table_rows_selected)
+    
+    # Store the current state before making changes
+    previous_metadata$comment_df <- run_metadata$comment_df
+    previous_metadata$plot_list <- run_metadata$plot_list
+    previous_metadata$peaks_df <- run_metadata$peaks_df
+    previous_metadata$peak_mt_df <- run_metadata$peak_mt_df
+    previous_metadata$peak_area_df <- run_metadata$peak_area_df
+    
     selected_row <- input$peak_info_table_rows_selected
     
     # Extract the current annotation_data
@@ -2540,6 +2551,47 @@ server <- function(input, output, session){
         save(plot_list, comment_df, peaks_df, peak_mt_df, peak_area_df, file = file.path(subfolder_path, "plot_list_data.RData"))
       } 
     }
+  })
+  
+  #Undo button for undoing an accidental deletion of a peak
+  observeEvent(input$undo, {
+    # Revert to the previous state
+    run_metadata$comment_df <- previous_metadata$comment_df
+    run_metadata$plot_list <- previous_metadata$plot_list
+    run_metadata$peaks_df <- previous_metadata$peaks_df
+    run_metadata$peak_mt_df <- previous_metadata$peak_mt_df
+    run_metadata$peak_area_df <- previous_metadata$peak_area_df
+    
+    # Update the UI to reflect the reverted state
+    output$peak_info_table <- DT::renderDataTable({
+      req(input$plot_table_rows_selected)
+      selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
+      base_file_name <- sub("\\.mz5$", "", run_metadata$file_name)
+      plotname <- sub(paste0("^", base_file_name, "_"), "", selected_plot_name)
+      plot_list <- run_metadata$plot_list
+      
+      if (plotname %in% names(plot_list)) {
+        annotation_data <- plot_list[[plotname]]$annotation_data
+        annotation_data
+      } else {
+        data.frame()  # Return an empty data frame if the plotname is not found
+      }
+    }, selection = 'single')
+    
+    output$comment_df_table <- DT::renderDataTable({
+      run_metadata$comment_df
+    }, options = list(scrollX = TRUE))
+    
+    # Extract objects from run_metadata
+    plot_list <- run_metadata$plot_list
+    comment_df <- run_metadata$comment_df
+    peaks_df <- run_metadata$peaks_df
+    peak_mt_df <- run_metadata$peak_mt_df
+    peak_area_df <- run_metadata$peak_area_df
+    
+    # Save the reverted state back to the file
+    subfolder_path <- file.path(input$results_folder, "Data", run_metadata$file_name)
+    save(plot_list, comment_df, peaks_df, peak_mt_df, peak_area_df, file = file.path(subfolder_path, "plot_list_data.RData"))
   })
 
   # # Observe manual integration button click

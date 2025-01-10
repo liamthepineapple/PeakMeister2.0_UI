@@ -300,6 +300,8 @@ ui <- dashboardPage(
                        DTOutput("peak_info_table"),
                        #Action button for deleting peaks
                        actionButton("delete_peak", "Delete Selected Peaks"),
+                       #Action button for undoing peak deletion
+                       actionButton("undo", "Undo Peak Deletion")
                 )
               )
             )

@@ -2383,10 +2383,25 @@ server <- function(input, output, session){
   })
   
   # List all "Results" folders in the main directory
-  observe({
+  list_results_folders <- function() {
     results_folders <- list.dirs(path = ".", full.names = TRUE, recursive = FALSE)
     results_folders <- results_folders[grepl("Results", results_folders)]
-    updateSelectInput(session, "results_folder", choices = results_folders)
+    results_folders
+  }
+  
+  #This requires the app to periodidically check for new Results folders so that the generated results folder in the app can be retrieved
+  results_folders_reactive <- reactivePoll(5000, session,
+                                           checkFunc = function() {
+                                             list_results_folders()
+                                           },
+                                           valueFunc = function() {
+                                             list_results_folders()
+                                           }
+  )
+  
+  # Observe the reactive polling and update the select input
+  observe({
+    updateSelectInput(session, "results_folder", choices = results_folders_reactive())
   })
   
   ######4.3 Render and display plots and annotation information######

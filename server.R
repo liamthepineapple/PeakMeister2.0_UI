@@ -2339,9 +2339,17 @@ server <- function(input, output, session){
     
   })#End of main button
   
-  #####4. Visualization tab####
+  ####4. Visualization tab####
   
-  ######4.1 Define reactive expressions###### 
+  #####4.1 Define reactive expressions##### 
+  
+  plot_list_data_values <- reactiveValues(
+    plot_list = NULL,
+    comment_df = NULL,
+    peaks_df = NULL,
+    peak_mt_df = NULL,
+    peak_area_df = NULL
+  )
   
   # Reactive expression to store the path to the selected results folder. Required to grab the correct annotation_data information from the subsequent runs and useful for processing data if you have closed the app.
   plot_list_data <- reactive({
@@ -2374,7 +2382,10 @@ server <- function(input, output, session){
   #Define reactive expression to store unaltered peak information to allow users to undo a deletion if a peak is deleted accidentally 
   previous_metadata <- reactiveValues(comment_df = NULL, plot_list = NULL, peaks_df = NULL, peak_mt_df = NULL, peak_area_df = NULL)
   
-  ######4.2 Environmental initialization: File upload, and folder selection######
+  #Variable to save edited plot names for rerendering without rerendering ALL plots
+  modified_peak_plots <- reactiveValues(names = character())
+  
+  #####4.2 Environmental initialization: File upload, and folder selection#####
   
   #Function to select files based on uploaded .mz5 files
   observe({
@@ -2404,13 +2415,14 @@ server <- function(input, output, session){
                                              list_results_folders()
                                            }
   )
-  
   # Observe the reactive polling and update the select input
   observe({
     updateSelectInput(session, "results_folder", choices = results_folders_reactive())
   })
   
-  ######4.3 Render and display plots and annotation information######
+  #####4.3 Render and display plots and annotation information#####
+  
+  ######4.3.1 Populate plot table and render selected plot######
   # Populate the plot table
   output$plot_table <- DT::renderDataTable({
     data.frame(Plot = filtered_plot_names())
@@ -2428,7 +2440,7 @@ server <- function(input, output, session){
     }
   })
   
-  #Functions for dealing with moveable lines on plotlyplots
+  ######4.3.2 Functions for dealing with moveable lines on plotlyplots######
   observeEvent(event_data("plotly_relayout"), {
     relayout_data <- event_data("plotly_relayout")
     
@@ -2450,7 +2462,7 @@ server <- function(input, output, session){
     paste("Blue Line Position:", line_positions$blue)
   })
   
-  # Render the annotation data table associated with selecetd plot
+  ######4.3.3 Render the annotation data table associated with selecetd plot######
   output$peak_info_table <- DT::renderDataTable({
     req(input$plot_table_rows_selected)
     selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
@@ -2468,30 +2480,92 @@ server <- function(input, output, session){
       annotation_data <- plot_list[[plotname]]$annotation_data
       annotation_data
     } else {
-      data.frame()  # Return an empty data frame if the plotname is not found
+      data.frame()
     }
   }, selection = 'multiple')
   
   
-  ######4.4 Delete Peaks and Update Metadata######
+  #####4.4 Delete Peaks and Update Metadata#####
+  ######4.4.1 Initialize environment, define reactive expressions, and define functions######
   
-  # Load data and initialize reactive values
-  observe({
-    req(input$results_folder, input$file_selector)
+  # Define main_folder outside the reactive expression
+  main_folder <- reactive({
+    req(input$results_folder)
+    input$results_folder
+  })
+  
+  #Define reactive expression to load plot_list_data
+  loaded_plot_list_data <- reactive({
+    req(main_folder(), input$file_selector)
     file_name <- input$file_selector
-    subfolder_path <- file.path(input$results_folder, "Data", file_name)
+    subfolder_path <- file.path(main_folder(), "Data", file_name)
+    load(file.path(subfolder_path, "plot_list_data.RData"))
+    return(list(plot_list = plot_list, peaks_df = peaks_df, peak_mt_df = peak_mt_df, peak_area_df = peak_area_df, comment_df = comment_df))
+  })
+  
+  #Define function for saving individual plots
+  save_plot_data <- function(plotname) {
+    
+    subfolder_path <- file.path(input$results_folder, "Data", run_metadata$file_name)
+    if (!dir.exists(subfolder_path)) {
+      dir.create(subfolder_path, recursive = TRUE)
+    }
+    
+    plot_list <- plot_list_data_values$plot_list
+    comment_df <- plot_list_data_values$comment_df
+    peaks_df <- plot_list_data_values$peaks_df
+    peak_mt_df <- plot_list_data_values$peak_mt_df
+    peak_area_df <- plot_list_data_values$peak_area_df
+    
+    save(plot_list, comment_df, peaks_df, peak_mt_df, peak_area_df, file = file.path(subfolder_path, "plot_list_data.RData"))
+    
+    #Reload data
+    reload_plot_data(subfolder_path)
+  }
+  
+  #Define function for reloading saved .RData file
+  reload_plot_data <- function(subfolder_path) {
+    req(file.exists(file.path(subfolder_path, "plot_list_data.RData")))
+    
+    # Load the updated .RData file
     load(file.path(subfolder_path, "plot_list_data.RData"))
     
-    # Initialize reactive values (required to save metadata to plot_list_data.Rdata)
-    run_metadata$comment_df <- comment_df
+    # Update the reactive values
+    plot_list_data_values$plot_list <- plot_list
+    plot_list_data_values$comment_df <- comment_df
+    plot_list_data_values$peaks_df <- peaks_df
+    plot_list_data_values$peak_mt_df <- peak_mt_df
+    plot_list_data_values$peak_area_df <- peak_area_df
+    
+    # Ensure run_metadata also updates to reflect the changes
     run_metadata$plot_list <- plot_list
-    run_metadata$file_name <- file_name
+    run_metadata$comment_df <- comment_df
     run_metadata$peaks_df <- peaks_df
     run_metadata$peak_mt_df <- peak_mt_df
     run_metadata$peak_area_df <- peak_area_df
+  }
+  
+  #Intiialize reactive values 
+  observeEvent(input$file_selector, {
+    req(loaded_plot_list_data())
+    
+    # Initialize reactive values only once when a new file is selected
+    plot_list_data_values$plot_list <- loaded_plot_list_data()$plot_list
+    plot_list_data_values$comment_df <- loaded_plot_list_data()$comment_df
+    plot_list_data_values$peaks_df <- loaded_plot_list_data()$peaks_df
+    plot_list_data_values$peak_mt_df <- loaded_plot_list_data()$peak_mt_df
+    plot_list_data_values$peak_area_df <- loaded_plot_list_data()$peak_area_df
+    
+    # Store metadata in a separate reactive structure to allow users to access/undo peak deletions
+    run_metadata$comment_df <- plot_list_data_values$comment_df
+    run_metadata$plot_list <- plot_list_data_values$plot_list
+    run_metadata$file_name <- input$file_selector
+    run_metadata$peaks_df <- plot_list_data_values$peaks_df
+    run_metadata$peak_mt_df <- plot_list_data_values$peak_mt_df
+    run_metadata$peak_area_df <- plot_list_data_values$peak_area_df
   })
   
-  #Server logic for deleting peaks in plots
+  ######4.4.2 Server logic for deleting peaks in plots######
   observeEvent(input$delete_peak, {
     req(input$peak_info_table_rows_selected)
     
@@ -2508,55 +2582,64 @@ server <- function(input, output, session){
     selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
     base_file_name <- sub("\\.mz5$", "", input$file_selector)
     plotname <- sub(paste0("^", base_file_name, "_"), "", selected_plot_name)
-    plot_list <- run_metadata$plot_list
+    plot_list <- plot_list_data_values$plot_list
+    
+    # Mark the plot as edited so only plots that have been edited can be regenerated later
+    modified_peak_plots$names <- unique(c(modified_peak_plots$names, plotname))
     
     if (plotname %in% names(plot_list)) {
       annotation_data <- plot_list[[plotname]]$annotation_data
+      integration_data <- plot_list[[plotname]]$integration_data
       
       # Loop through each selected row
       for (selected_row in selected_rows) {
-        # Get the peak.number from the selected row
+        # Get the peak number from the selected row to allow matching accross various acccesible data streams
         peak_number <- annotation_data$peak.number[selected_row]
         
         # Update the comment column for the selected peak
         annotation_data$comment[selected_row] <- "NPD"
         
-        # Update the comment_df
-        comment_df <- run_metadata$comment_df
-        
-        # Update the corresponding cell in comment_df
-        if (plotname %in% colnames(run_metadata$comment_df)) {
-          run_metadata$comment_df[peak_number, plotname] <- "NPD"
+        # Update comment_df so peak areas can be recauculated/reintegrated later on
+        if (plotname %in% colnames(plot_list_data_values$comment_df)) {
+          plot_list_data_values$comment_df[peak_number, plotname] <- "NPD"
         }
+        
+        # Remove all integration_data associated with the relevant peak number so regenerated plots will update with the deleted peaks once regenerated
+        integration_data <- integration_data[integration_data$peak.number != peak_number, ]
       }
       
       # Update the plot_list with the modified annotation_data
       plot_list[[plotname]]$annotation_data <- annotation_data
+      plot_list[[plotname]]$integration_data <- integration_data
       
       # Update the reactive plot_list_data
-      run_metadata$plot_list <- plot_list
-      run_metadata$comment_df <- comment_df
-      
-      # Update the peak_info_table to reflect the changes
-      output$peak_info_table <- DT::renderDataTable({
-        annotation_data
-      }, selection = 'multiple')
-      
-      # Extract objects from run_metadata
-      plot_list <- run_metadata$plot_list
-      comment_df <- run_metadata$comment_df
-      peaks_df <- run_metadata$peaks_df
-      peak_mt_df <- run_metadata$peak_mt_df
-      peak_area_df <- run_metadata$peak_area_df
-      
-      # Save the updated data back to the file
-      subfolder_path <- file.path(input$results_folder, "Data", run_metadata$file_name)
-      save(plot_list, comment_df, peaks_df, peak_mt_df, peak_area_df, file = file.path(subfolder_path, "plot_list_data.RData"))
+      plot_list_data_values$plot_list <- plot_list
     }
-  })
+    
+    # Save changes 
+    save_plot_data(plotname)
+    
+    # Update the peak_info_table
+    output$peak_info_table <- DT::renderDataTable({
+      req(input$plot_table_rows_selected)
+      selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
+      
+      base_file_name <- sub("\\.mz5$", "", input$file_selector)
+      plotname <- sub(paste0("^", base_file_name, "_"), "", selected_plot_name)
+      plot_list <- plot_list_data_values$plot_list
+      
+      # Ensure the plotname exists in the plot_list
+      if (plotname %in% names(plot_list)) {
+        annotation_data <- plot_list[[plotname]]$annotation_data
+        annotation_data
+      } else {
+        data.frame()
+      }
+    }, selection = 'multiple')
   
-  
-  #Undo button for undoing an accidental deletion of a peak
+})
+     
+  #####4.5 Undo peak deletion#####
   observeEvent(input$undo, {
     # Revert to the previous state
     run_metadata$comment_df <- previous_metadata$comment_df
@@ -2564,6 +2647,13 @@ server <- function(input, output, session){
     run_metadata$peaks_df <- previous_metadata$peaks_df
     run_metadata$peak_mt_df <- previous_metadata$peak_mt_df
     run_metadata$peak_area_df <- previous_metadata$peak_area_df
+    
+    # Update the reactiveValues object
+    plot_list_data_values$plot_list <- run_metadata$plot_list
+    plot_list_data_values$comment_df <- run_metadata$comment_df
+    plot_list_data_values$peaks_df <- run_metadata$peaks_df
+    plot_list_data_values$peak_mt_df <- run_metadata$peak_mt_df
+    plot_list_data_values$peak_area_df <- run_metadata$peak_area_df
     
     # Update the UI to reflect the reverted state
     output$peak_info_table <- DT::renderDataTable({
@@ -2577,29 +2667,16 @@ server <- function(input, output, session){
         annotation_data <- plot_list[[plotname]]$annotation_data
         annotation_data
       } else {
-        data.frame()  # Return an empty data frame if the plotname is not found
+        data.frame()  
       }
     }, selection = 'multiple')
-    
-    output$comment_df_table <- DT::renderDataTable({
-      run_metadata$comment_df
-    }, options = list(scrollX = TRUE))
-    
-    # Extract objects from run_metadata
-    plot_list <- run_metadata$plot_list
-    comment_df <- run_metadata$comment_df
-    peaks_df <- run_metadata$peaks_df
-    peak_mt_df <- run_metadata$peak_mt_df
-    peak_area_df <- run_metadata$peak_area_df
     
     # Save the reverted state back to the file
     subfolder_path <- file.path(input$results_folder, "Data", run_metadata$file_name)
     save(plot_list, comment_df, peaks_df, peak_mt_df, peak_area_df, file = file.path(subfolder_path, "plot_list_data.RData"))
   })
-
   
-  
-  
+ 
   # # Observe manual integration button click
   # observeEvent(input$manual_integrate, {
   #   showModal(

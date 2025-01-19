@@ -2184,7 +2184,6 @@ server <- function(input, output, session){
                                      label_data = plot_list[[n]][[4]],
                                      x_axis_data = plot_list[[n]][[5]],
                                      y_axis_data = plot_list[[n]][[6]])
-        
         return(plot)
       })
       
@@ -2204,33 +2203,16 @@ server <- function(input, output, session){
           
           is_index <- which(name_vec == mi_df$description[(n - num_of_is)])
           
-          plotly_figure <- subplot(
-            plot_function_plotly(
-              eie_data = plot_list[[n]][[1]],
-              annotation_data = plot_list[[n]][[2]],
-              integration_data = plot_list[[n]][[3]],
-              label_data = plot_list[[n]][[4]],
-              x_axis_data = c(min(eie_df$mt.seconds), max(eie_df$mt.seconds)),
-              y_axis_data = plot_list[[n]][[6]][2]
-            ),
-            plot_function_plotly(
+          plotly_figure <- plot_function_plotly(
               eie_data = plot_list[[n]][[1]],
               annotation_data = plot_list[[n]][[2]],
               integration_data = plot_list[[n]][[3]],
               label_data = plot_list[[n]][[4]],
               x_axis_data = plot_list[[n]][[5]],
-              y_axis_data = plot_list[[n]][[6]]
-            ),
-            plot_function_plotly(
-              eie_data = plot_list[[is_index]][[1]],
-              annotation_data = plot_list[[is_index]][[2]],
-              integration_data = plot_list[[is_index]][[3]],
-              label_data = plot_list[[is_index]][[4]],
-              x_axis_data = plot_list[[n]][[5]],
-              y_axis_data = plot_list[[is_index]][[6]]
-            ),
-            nrows = 3
-          )
+              y_axis_data = plot_list[[n]][[6]])
+          
+          #Build plotly object before saving them
+          plotly_figure <- plotly::plotly_build(plotly_figure)
           
           # Name plots based on the file being processed and the metabolite
           plot_name <- paste0(data_files_name[d], "_", name_vec[n])
@@ -2242,25 +2224,16 @@ server <- function(input, output, session){
         # Saving Analytes using MI as plotly objects
         if (mi_df$description[n - num_of_is] == "mi") {
           
-          plotly3 <- subplot(
-            plot_function_plotly(
-              eie_data = plot_list[[n]][[1]],
-              annotation_data = plot_list[[n]][[2]],
-              integration_data = plot_list[[n]][[3]],
-              label_data = plot_list[[n]][[4]],
-              x_axis_data = c(min(eie_df$mt.seconds), max(eie_df$mt.seconds)),
-              y_axis_data = plot_list[[n]][[6]][2]
-            ),
-            plot_function_plotly(
+          plotly3 <- plot_function_plotly(
               eie_data = plot_list[[n]][[1]],
               annotation_data = plot_list[[n]][[2]],
               integration_data = plot_list[[n]][[3]],
               label_data = plot_list[[n]][[4]],
               x_axis_data = plot_list[[n]][[5]],
-              y_axis_data = plot_list[[n]][[6]]
-            ),
-            nrows = 2
-          )
+              y_axis_data = plot_list[[n]][[6]])
+          
+          #Build plotly object before saving them
+          plotly3 <- plotly::plotly_build(plotly3)
           
           # Name plots based on the file being processed and the metabolite
           plot_name <- paste0(data_files_name[d], "_", name_vec[n])
@@ -2270,13 +2243,11 @@ server <- function(input, output, session){
         }
       }
       
-      
       #Save plotly_objects to reactive varibale plotly_data
       plotly_data(plotly_objects)
       
       #Clear workspace
       rm(list = c())
-      
       
       print("Plotting Complete")
       
@@ -2338,6 +2309,7 @@ server <- function(input, output, session){
     }#End of loop
     
   })#End of main button
+  
   
   ####4. Visualization tab####
   
@@ -2676,7 +2648,197 @@ server <- function(input, output, session){
     save(plot_list, comment_df, peaks_df, peak_mt_df, peak_area_df, file = file.path(subfolder_path, "plot_list_data.RData"))
   })
   
- 
+  #####4.6 Regenerate plots#####
+
+  ######4.6.1 Plotting functions######
+   #ggplot function
+   plot_function <- function(eie_data, annotation_data, integration_data, label_data, x_axis_data, y_axis_data, selected_file, font_size_1, font_size_2){
+  
+     extra_space <- ifelse(x_axis_data[1] > 70, 1, 0)
+  
+     ggplot(data = eie_data) +
+      geom_line(aes(x = mt.seconds / 60, y = eie_data[,2]), colour = "grey50") +
+       theme_classic() +
+       coord_cartesian(xlim = c(x_axis_data[1] / 60 - extra_space, x_axis_data[2] / 60 + extra_space),
+                       ylim = c(0, 1.5 * y_axis_data[1])) +
+       scale_y_continuous(name = "Ion Counts",
+                          labels = function(x) format(x, scientific = TRUE),
+                          expand = c(0,0),
+                          breaks = scales::pretty_breaks(n = 10)) +
+       scale_x_continuous(name = "Migration Time (Minutes)",
+                          breaks = scales::pretty_breaks(n = 10))+
+       ggtitle(paste(label_data[1], " EIE", " (m/z = ", label_data[2],")",sep = ""),
+              subtitle = paste("Data File: ", selected_file)) +
+       geom_ribbon(data = integration_data,
+                   aes(x = mt.seconds/60, ymax = intensity, ymin = baseline, fill = peak.number),
+                   alpha =0.4) +
+       geom_text(data = annotation_data,
+                 label = annotation_data$peak.number,
+                 size  = font_size_1,
+                 family = "sans",
+                 aes(x = peak.apex.seconds/60,
+                     y = peak.height.counts + 0.1 * y_axis_data[1])) +
+       geom_text(data = annotation_data,
+                 label = annotation_data$comment,
+                 size  = font_size_1,
+                 family = "sans",
+                 aes(x = peak.apex.seconds/60,
+                     y = peak.height.counts + 0.2 * y_axis_data[1])) +
+       theme(legend.position = "none",
+             text = element_text(size = font_size_2, family = "sans"))
+  
+   }
+  
+   #plotly function
+   plot_function_plotly <- function(eie_data, annotation_data, integration_data, label_data, x_axis_data, y_axis_data, font_size_1, font_size_2) {
+     plot_ly() %>%
+       add_lines(
+         x = ~eie_data[,1] / 60,
+         y = ~eie_data[,2],
+         name = 'Electropherogram',
+         line = list(color = 'grey')
+       ) %>%
+       add_ribbons(
+         x = ~integration_data$mt.seconds / 60,
+         ymin = ~integration_data$baseline,
+         ymax = ~integration_data$intensity,
+         fillcolor = 'rgba(100,100,255,0.4)',
+         line = list(color = 'rgba(100,100,255,0.4)'),
+         name = 'Peak Integration'
+       ) %>%
+       add_text(
+         x = ~annotation_data$peak.apex.seconds / 60,
+         y = ~annotation_data$peak.height.counts + (0.1 * y_axis_data[1]),
+         text = ~annotation_data$peak.number,
+         showlegend = FALSE
+       ) %>%
+       add_text(
+         x = ~annotation_data$peak.apex.seconds / 60,
+         y = ~annotation_data$peak.height.counts + (0.2 * y_axis_data[1]),
+         text = ~annotation_data$comment,
+         showlegend = FALSE
+       ) %>%
+       layout(
+         title = paste(label_data[1], " EIE", " (m/z =", label_data[2], ")"),
+         xaxis = list(title = 'Migration Time (Minutes)'),
+         yaxis = list(title = 'Ion Counts'),
+         template = 'plotly_white',
+         shapes = list(
+           list(
+             type = "line",
+             x0 = 2,  # Initial position of the red line
+             y0 = 0,
+             x1 = 2,
+             y1 = 1,
+             xref = "x",
+             yref = "paper",
+             line = list(color = "Red", width = 2)
+           ),
+           list(
+             type = "line",
+             x0 = 4,  # Initial position of the blue line
+             y0 = 0,
+             x1 = 4,
+             y1 = 1,
+             xref = "x",
+             yref = "paper",
+             line = list(color = "Blue", width = 2)
+           )
+         )
+       ) %>% config(editable = TRUE)
+   }
+  
+  ######4.6.2 Function for regenerating plots######
+   
+  regenerate_plots <- function() {
+    
+    # Extract the base file name from the selected .mz5 file
+    base_file_name <- sub("\\.mz5$", "", input$file_selector)
+    selected_file <- input$file_selector
+    
+    # Get the list of modified plots
+    modified_plots <- modified_peak_plots$names
+    
+    # Get the existing plotly data
+    data_plotly <- plotly_data()
+  
+    # Define font sizes for plotting functions
+    font_size_1 <- 7
+    font_size_2 <- 25
+  
+    #Load data for plotting
+    plot_list <- plot_list_data()$plot_list
+    
+    for (plotname in modified_plots) {
+      if (plotname %in% names(plot_list)) {
+        
+        # Retrieve the plot data for the current plotname
+        plot_data <- plot_list[[plotname]]
+        
+        plot <- plot_function_plotly(
+          eie_data = plot_data$eie_data,
+          annotation_data = plot_data$annotation_data,
+          integration_data = plot_data$integration_data,
+          label_data = plot_data$label_data,
+          x_axis_data = plot_data$x_axis_data,
+          y_axis_data = plot_data$y_axis_data,
+          font_size_1 = font_size_1,
+          font_size_2 = font_size_2
+        )
+        
+        #This is stupid. Not sure why I need this here but this line is neccesary to save plots correctly.
+        plotly_copy <- plotly::plotly_build(plot)
+        
+        # Name the plot to match with existing plots
+        plot_name <- paste0(base_file_name, "_", plotname)
+        
+        # Update or add the regenerated plot in the data_plotly list
+        data_plotly[[plot_name]] <- plotly_copy
+      }
+    }
+
+    # Ensure plotly_data is updated with the new plots
+    plotly_data(data_plotly)
+    
+    # Save data file and overwtie previously excisting .RData file
+    save(data_plotly, file = file.path(input$results_folder, "plotly_objects.RData"))
+  }
+  
+  #Action button for regenerating plots
+  observeEvent(input$regenerateplots, {
+    regenerate_plots()
+
+    #update the peak_info_table
+    output$peak_info_table <- DT::renderDataTable({
+      req(input$plot_table_rows_selected)
+      selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
+
+      # Extract the base file name from the selected .mz5 file
+      base_file_name <- sub("\\.mz5$", "", input$file_selector)
+
+      # Remove the base file name from the selected plot name to get the plot name
+      plotname <- sub(paste0("^", base_file_name, "_"), "", selected_plot_name)
+
+      plot_list <- plot_list_data()$plot_list
+
+      # Ensure the plotname exists in the plot_list
+      if (plotname %in% names(plot_list)) {
+        annotation_data <- plot_list[[plotname]]$annotation_data
+        annotation_data
+      } else {
+        data.frame()
+      }
+    }, selection = 'multiple')
+    
+    # Clear the modified_peak_plots variable to allow users to edit more plots without relaunching app
+    modified_peak_plots$names <- character(0)
+  })
+  
+  #Table to list plots being regenerated
+  output$modified_peak_plots_table <- DT::renderDataTable({
+    data.frame(Modified_Plots = modified_peak_plots$names)
+  }, selection = 'single')
+  
   # # Observe manual integration button click
   # observeEvent(input$manual_integrate, {
   #   showModal(
@@ -2686,11 +2848,10 @@ server <- function(input, output, session){
   #       footer = actionButton("confirm_region", "Confirm Region"),
   #       size = "l",
   #       easyClose = TRUE
-  #     )   
+  #     )
   #   )
   # })
   #  
-  
 
 }#Closing bracket
   

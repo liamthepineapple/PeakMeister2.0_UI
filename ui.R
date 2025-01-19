@@ -285,10 +285,8 @@ ui <- dashboardPage(
                       
                        #Select plots, display plots
                        #selectInput("plot_selector","Select Plot", choices = NULL),
-                       DTOutput("plot_table"),
-                       #Display list of plots in small table -> quick check to see if plots 
-                       #DTOutput("plotly_table"),
-                       
+                       DTOutput("plot_table"), DTOutput("modified_peak_plots_table"),
+                       #Action button for manual integration 
                        actionButton("manual_integrate", "Manual Integrate")),
                 #Display selected plot 
                 column(8,
@@ -303,7 +301,7 @@ ui <- dashboardPage(
                        #Action button for undoing peak deletion
                        actionButton("undo", "Undo Peak Deletion"),
                        #Action button for regenerating plots
-                       actionButton("regenerateplots", "Regenerate Changed Plots")
+                       actionButton("regenerateplots", "Regenerate Changed Plots"), 
                 )
               )
             )

@@ -2419,6 +2419,7 @@ server <- function(input, output, session){
     }
   })
   
+  
   ######4.3.2 Functions for dealing with moveable lines on plotlyplots######
   observeEvent(event_data("plotly_relayout"), {
     relayout_data <- event_data("plotly_relayout")
@@ -2642,13 +2643,17 @@ server <- function(input, output, session){
     run_metadata$peaks_df <- previous_metadata$peaks_df
     run_metadata$peak_mt_df <- previous_metadata$peak_mt_df
     run_metadata$peak_area_df <- previous_metadata$peak_area_df
+
+    # Extract objects from run_metadata
+    plot_list <- run_metadata$plot_list
+    comment_df <- run_metadata$comment_df
+    peaks_df <- run_metadata$peaks_df
+    peak_mt_df <- run_metadata$peak_mt_df
+    peak_area_df <- run_metadata$peak_area_df
     
-    # Update the reactiveValues object
-    plot_list_data_values$plot_list <- run_metadata$plot_list
-    plot_list_data_values$comment_df <- run_metadata$comment_df
-    plot_list_data_values$peaks_df <- run_metadata$peaks_df
-    plot_list_data_values$peak_mt_df <- run_metadata$peak_mt_df
-    plot_list_data_values$peak_area_df <- run_metadata$peak_area_df
+    # Save the reverted state back to the file
+    subfolder_path <- file.path(input$results_folder, "Data", run_metadata$file_name)
+    save(plot_list, comment_df, peaks_df, peak_mt_df, peak_area_df, file = file.path(subfolder_path, "plot_list_data.RData"))
     
     # Update the UI to reflect the reverted state
     output$peak_info_table <- DT::renderDataTable({
@@ -2665,10 +2670,6 @@ server <- function(input, output, session){
         data.frame()  
       }
     }, options = list(pageLength = 13), selection = 'multiple')
-    
-    # Save the reverted state back to the file
-    subfolder_path <- file.path(input$results_folder, "Data", run_metadata$file_name)
-    save(plot_list, comment_df, peaks_df, peak_mt_df, peak_area_df, file = file.path(subfolder_path, "plot_list_data.RData"))
   })
   
   #####4.6 Regenerate plots#####

@@ -267,7 +267,13 @@ ui <- dashboardPage(
           column(6,
                  #Big red button for initializing the run.This is where most of the calculations are done
                  actionButton("initialize", "Initialize Run", 
-                              style = "color: black; background-color: red; width: 100%; height: 50px; font-size: 16px;"))),
+                              style = "background-color:#1999CC;
+                      color:#000000;
+                      border-color:#000000;
+                      border-style:double;
+                      border-width:10px;
+                      border-radius:0%;
+                      font-size:40px; width: 100%;"))),
       #Create progress bar for monitoring computation 
        uiOutput("progressBar")
       ),

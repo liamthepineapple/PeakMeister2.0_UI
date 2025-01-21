@@ -2325,17 +2325,23 @@ server <- function(input, output, session){
   
   # Reactive expression to store the path to the selected results folder. Required to grab the correct annotation_data information from the subsequent runs and useful for processing data if you have closed the app.
   plot_list_data <- reactive({
-  main_folder <- reactive({
-    req(input$results_folder)
-    input$results_folder
-  })
-  
-  # Reactive expression to load the correct plot_list_data.RData file. 
+    main_folder <- reactive({
+      req(input$results_folder)
+      input$results_folder
+    })
+    
     req(main_folder(), input$file_selector)
     file_name <- input$file_selector
     subfolder_path <- file.path(main_folder(), "Data", file_name)
-    load(file.path(subfolder_path, "plot_list_data.RData"))
-    return(list(plot_list = plot_list, peaks_df = peaks_df, peak_mt_df = peak_mt_df, peak_area_df = peak_area_df, comment_df = comment_df))
+    
+    # Check if the file exists before attempting to load it
+    if (file.exists(file.path(subfolder_path, "plot_list_data.RData"))) {
+      load(file.path(subfolder_path, "plot_list_data.RData"))
+      return(list(plot_list = plot_list, peaks_df = peaks_df, peak_mt_df = peak_mt_df, peak_area_df = peak_area_df, comment_df = comment_df))
+    } else {
+      warning("File not found: ", file.path(subfolder_path, "plot_list_data.RData"))
+      return(NULL)
+    }
   })
 
   
@@ -2391,6 +2397,7 @@ server <- function(input, output, session){
   observe({
     updateSelectInput(session, "results_folder", choices = results_folders_reactive())
   })
+  
   
   #####4.3 Render and display plots and annotation information#####
   
@@ -2454,7 +2461,7 @@ server <- function(input, output, session){
     } else {
       data.frame()
     }
-  }, selection = 'multiple')
+  }, options = list(pageLength = 13), selection = 'multiple')
   
   
   #####4.4 Delete Peaks and Update Metadata#####
@@ -2466,13 +2473,20 @@ server <- function(input, output, session){
     input$results_folder
   })
   
-  #Define reactive expression to load plot_list_data
+  # Define reactive expression to load plot_list_data
   loaded_plot_list_data <- reactive({
     req(main_folder(), input$file_selector)
     file_name <- input$file_selector
     subfolder_path <- file.path(main_folder(), "Data", file_name)
-    load(file.path(subfolder_path, "plot_list_data.RData"))
-    return(list(plot_list = plot_list, peaks_df = peaks_df, peak_mt_df = peak_mt_df, peak_area_df = peak_area_df, comment_df = comment_df))
+    
+    # Check if the file exists before attempting to load it
+    if (file.exists(file.path(subfolder_path, "plot_list_data.RData"))) {
+      load(file.path(subfolder_path, "plot_list_data.RData"))
+      return(list(plot_list = plot_list, peaks_df = peaks_df, peak_mt_df = peak_mt_df, peak_area_df = peak_area_df, comment_df = comment_df))
+    } else {
+      warning("File not found: ", file.path(subfolder_path, "plot_list_data.RData"))
+      return(NULL)
+    }
   })
   
   #Define function for saving individual plots
@@ -2493,6 +2507,7 @@ server <- function(input, output, session){
     
     #Reload data
     reload_plot_data(subfolder_path)
+    
   }
   
   #Define function for reloading saved .RData file
@@ -2591,6 +2606,15 @@ server <- function(input, output, session){
     # Save changes 
     save_plot_data(plotname)
     
+    # Reload the updated data
+    subfolder_path <- file.path(input$results_folder, "Data", run_metadata$file_name)
+    reload_plot_data(subfolder_path)
+    
+    # Update reactive values directly
+    plot_list_data_values$plot_list <- plot_list
+    plot_list_data_values$comment_df <- plot_list_data_values$comment_df
+    
+    
     # Update the peak_info_table
     output$peak_info_table <- DT::renderDataTable({
       req(input$plot_table_rows_selected)
@@ -2607,8 +2631,7 @@ server <- function(input, output, session){
       } else {
         data.frame()
       }
-    }, selection = 'multiple')
-  
+    }, options = list(pageLength = 13), selection = 'multiple')
 })
      
   #####4.5 Undo peak deletion#####
@@ -2641,7 +2664,7 @@ server <- function(input, output, session){
       } else {
         data.frame()  
       }
-    }, selection = 'multiple')
+    }, options = list(pageLength = 13), selection = 'multiple')
     
     # Save the reverted state back to the file
     subfolder_path <- file.path(input$results_folder, "Data", run_metadata$file_name)
@@ -2690,7 +2713,7 @@ server <- function(input, output, session){
    }
   
    #plotly function
-   plot_function_plotly <- function(eie_data, annotation_data, integration_data, label_data, x_axis_data, y_axis_data, font_size_1, font_size_2) {
+   plot_function_plotly <- function(eie_data, annotation_data, integration_data, label_data, x_axis_data, y_axis_data) {
      plot_ly() %>%
        add_lines(
          x = ~eie_data[,1] / 60,
@@ -2766,8 +2789,10 @@ server <- function(input, output, session){
     font_size_1 <- 7
     font_size_2 <- 25
   
+
+    
     #Load data for plotting
-    plot_list <- plot_list_data()$plot_list
+    plot_list <- plot_list_data_values$plot_list
     
     for (plotname in modified_plots) {
       if (plotname %in% names(plot_list)) {
@@ -2781,10 +2806,7 @@ server <- function(input, output, session){
           integration_data = plot_data$integration_data,
           label_data = plot_data$label_data,
           x_axis_data = plot_data$x_axis_data,
-          y_axis_data = plot_data$y_axis_data,
-          font_size_1 = font_size_1,
-          font_size_2 = font_size_2
-        )
+          y_axis_data = plot_data$y_axis_data)
         
         #This is stupid. Not sure why I need this here but this line is neccesary to save plots correctly.
         plotly_copy <- plotly::plotly_build(plot)
@@ -2800,37 +2822,15 @@ server <- function(input, output, session){
     # Ensure plotly_data is updated with the new plots
     plotly_data(data_plotly)
     
+    plotly_objects <- data_plotly
+    
     # Save data file and overwtie previously excisting .RData file
-    save(data_plotly, file = file.path(input$results_folder, "plotly_objects.RData"))
+    save(plotly_objects, file = file.path(input$results_folder, "plotly_objects.RData"))
   }
   
   #Action button for regenerating plots
   observeEvent(input$regenerateplots, {
     regenerate_plots()
-
-    #update the peak_info_table
-    output$peak_info_table <- DT::renderDataTable({
-      req(input$plot_table_rows_selected)
-      selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
-
-      # Extract the base file name from the selected .mz5 file
-      base_file_name <- sub("\\.mz5$", "", input$file_selector)
-
-      # Remove the base file name from the selected plot name to get the plot name
-      plotname <- sub(paste0("^", base_file_name, "_"), "", selected_plot_name)
-
-      plot_list <- plot_list_data()$plot_list
-
-      # Ensure the plotname exists in the plot_list
-      if (plotname %in% names(plot_list)) {
-        annotation_data <- plot_list[[plotname]]$annotation_data
-        annotation_data
-      } else {
-        data.frame()
-      }
-    }, selection = 'multiple')
-    
-    # Clear the modified_peak_plots variable to allow users to edit more plots without relaunching app
     modified_peak_plots$names <- character(0)
   })
   

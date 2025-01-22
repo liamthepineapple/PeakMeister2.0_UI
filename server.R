@@ -462,6 +462,11 @@ server <- function(input, output, session){
     output$fileTable <- DT::renderDataTable({
       DT::datatable(uploadedmz5(), options = list(pageLength = 5))
     })
+    
+    #Automatically start run if checkbox is checked: Note, will not display updated file tables until run is finished. 
+    if (input$autorun){
+      shinyjs::click("initialize")
+    }
   })
   
   #Clear uploaded files
@@ -470,6 +475,8 @@ server <- function(input, output, session){
     uploadedmz5(data.frame(FileName = character(), FilePath = character(), stringsAsFactors = FALSE))
   })
 
+
+  #Click initialize run automatically if checkbox is checked
 
   
   #####3.2 Initialze Run Button - Main Content######
@@ -2285,6 +2292,10 @@ server <- function(input, output, session){
       }else{
         peak_mt_report = rbind(peak_mt_report, peak_mt_df)
       }
+      
+      
+      # Save peak_area_report separately after it has been created
+      save(peak_area_report, file = file.path(file_name, "peak_area_report.RData"))
       
       # Delete temporary mz5 file
     

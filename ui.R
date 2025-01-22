@@ -6,7 +6,7 @@
 if (!require("pacman", quietly = TRUE)) install.packages("pacman")
 if (!require("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 
-pacman::p_load("shiny","shinyBS", "tools","waiter","shinyFiles","RColorBrewer","shinycssloaders", "shinydashboard", "DT", "shinyalert","ggplot2","ggpubr", "plotly","hash","pracma", "tidyverse", "stats", "DescTools", "xcms", "rlang","markdown", "openxlsx","readxl","writexl","fontawesome", "MSnbase", "mzR",
+pacman::p_load("shiny","shinyBS", "tools","waiter","shinyFiles","RColorBrewer","shinycssloaders", "shinydashboard", "DT", "shinyalert","ggplot2","ggpubr", "plotly","hash","pracma", "tidyverse", "stats", "DescTools", "xcms", "rlang","markdown", "openxlsx","readxl","writexl","fontawesome", "MSnbase", "mzR","shinyjs","later",
                install = TRUE)
 
 #Title of app
@@ -57,7 +57,7 @@ ui <- dashboardPage(
           padding-bottom: 100px;
         }
       "))
-    ),
+    ),useShinyjs(),
     use_waiter(),
     tabItems(
       # About tab content
@@ -256,6 +256,8 @@ ui <- dashboardPage(
             column(6,
                    #File upload button
                    fileInput("mz5Files", "Upload .mz5 Files", accept = c(".mz5"), multiple = TRUE),
+                  #checkbox to enable autoinitialization or not 
+                  checkboxInput("autorun", "Start run automatically after upload", value = FALSE),
                    #Display uploaded files in table 
                    DT::dataTableOutput("fileTable"),
                    #Clear uploaded files

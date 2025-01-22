@@ -2792,6 +2792,8 @@ server <- function(input, output, session){
    }
   
    #Function for redoing the Metabolite Peak Areas.csv
+   
+   
    regenerate_metabolite_peak_areas <- function() {
      
      # Initialize an empty list to store peak_area_df data frames
@@ -2831,7 +2833,7 @@ server <- function(input, output, session){
     
     # Get the existing plotly data
     data_plotly <- plotly_data()
-  
+    
     # Define font sizes for plotting functions
     font_size_1 <- 7
     font_size_2 <- 25
@@ -2869,14 +2871,17 @@ server <- function(input, output, session){
     
     plotly_objects <- data_plotly
     
+    # Clear all objects except plotly_objects
+    rm(list = setdiff(ls(), "plotly_objects"))
+    
     # Save data file and overwtie previously excisting .RData file
-    save(plotly_objects, file = file.path(input$results_folder, "plotly_objects.RData"))
+    save(plotly_objects, file = file.path(input$results_folder, "plotly_objects.RData"), compress = "xz")
   }
   
   #Action button for regenerating plots
   observeEvent(input$regenerateplots, {
     regenerate_plots()
-    regenerate_metabolite_peak_areas()
+    regenerate_metabolite_peak_areas
     modified_peak_plots$names <- character(0)
     
   })

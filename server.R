@@ -1913,9 +1913,7 @@ server <- function(input, output, session){
                                                            max(eie_df[,(n + 1)])))
         
       }
-      
-      # Save the entire plot_list to a .RData file in the subfolder as well as peaks_df
-      save(plot_list, peaks_df,peak_mt_df,peak_area_df, comment_df, file = file.path(subfolder_path, "plot_list_data.RData"))
+
       
       ######3.11.2 Create plot function for ggplots######
       plot_function <- function(eie_data, annotation_data, integration_data, label_data, x_axis_data, y_axis_data){
@@ -2280,6 +2278,8 @@ server <- function(input, output, session){
         peak_area_report = rbind(peak_area_report, peak_area_df)
       }
       
+      
+      
       ######3.12.2 Generate peak migration time data frame######
       
       peak_mt_df <- cbind("file.name" = c(data_files_name[d], rep("", num_of_injections - 1)),
@@ -2293,9 +2293,8 @@ server <- function(input, output, session){
         peak_mt_report = rbind(peak_mt_report, peak_mt_df)
       }
       
-      
-      # Save peak_area_report separately after it has been created
-      save(peak_area_report, file = file.path(file_name, "peak_area_report.RData"))
+      # Save the entire plot_list to a .RData file in the subfolder as well as peaks_df
+      save(plot_list, peaks_df,peak_mt_df,peak_area_df, comment_df, file = file.path(subfolder_path, "plot_list_data.RData"))
       
       # Delete temporary mz5 file
     
@@ -2615,6 +2614,15 @@ server <- function(input, output, session){
       plot_list_data_values$plot_list <- plot_list
     }
     
+    # Update peak_area_df using comment_df
+    for (i in 1:nrow(plot_list_data_values$peak_area_df)) {
+      plot_list_data_values$peak_area_df[i, 3:ncol(plot_list_data_values$peak_area_df)] <- ifelse(
+        plot_list_data_values$comment_df[i, ] == "",
+        plot_list_data_values$peak_area_df[i, 3:ncol(plot_list_data_values$peak_area_df)],
+        plot_list_data_values$comment_df[i, ]
+      )
+    }
+    
     # Save changes 
     save_plot_data(plotname)
     
@@ -2685,7 +2693,7 @@ server <- function(input, output, session){
   
   #####4.6 Regenerate plots#####
 
-  ######4.6.1 Plotting functions######
+  ######4.6.1 Defining functions######
    #ggplot function
    plot_function <- function(eie_data, annotation_data, integration_data, label_data, x_axis_data, y_axis_data, selected_file, font_size_1, font_size_2){
   
@@ -2783,6 +2791,33 @@ server <- function(input, output, session){
        ) %>% config(editable = TRUE)
    }
   
+   #Function for redoing the Metabolite Peak Areas.csv
+   regenerate_metabolite_peak_areas <- function() {
+     
+     # Initialize an empty list to store peak_area_df data frames
+     temp_area_df <- list()
+     
+     # Get the list of all folders in the Data directory
+     data_subfolders <- list.dirs(path = file.path(input$results_folder, "Data"), full.names = TRUE, recursive = FALSE)
+     
+     # Loop through each subfolder to load peak_area_df
+     for (subfolder_path in data_subfolders) {
+       if (file.exists(file.path(subfolder_path, "plot_list_data.RData"))) {
+         load(file.path(subfolder_path, "plot_list_data.RData"))
+
+         temp_area_df[[basename(subfolder_path)]] <- peak_area_df
+       }
+     }
+     
+     # Combine all dataframes into one
+     peak_area_report <- do.call(rbind, temp_area_df)
+     
+     # Save peak areas to .csv file
+     write.csv(peak_area_report,
+               file = file.path(input$results_folder, "Metabolite Peak Areas.csv"),
+               row.names = FALSE)
+   }
+   
   ######4.6.2 Function for regenerating plots######
    
   regenerate_plots <- function() {
@@ -2800,8 +2835,6 @@ server <- function(input, output, session){
     # Define font sizes for plotting functions
     font_size_1 <- 7
     font_size_2 <- 25
-  
-
     
     #Load data for plotting
     plot_list <- plot_list_data_values$plot_list
@@ -2843,7 +2876,9 @@ server <- function(input, output, session){
   #Action button for regenerating plots
   observeEvent(input$regenerateplots, {
     regenerate_plots()
+    regenerate_metabolite_peak_areas()
     modified_peak_plots$names <- character(0)
+    
   })
   
   #Table to list plots being regenerated

@@ -174,7 +174,7 @@ ui <- dashboardPage(
                      column(3, numericInput("ref.mass.minimum.counts", "ref.mass.minimum.counts", value = 0)),
                      column(3, selectInput("apply.mass.calibration", "apply.mass.calibration", choices = c("Yes", "No"))),
                      column(3, selectInput("apply.smoothing", "apply.smoothing", choices = c("Yes", "No"))),
-                     column(3, textInput("plot.format", "plot.format")),
+                     column(3, selectInput("plot.format", "plot.format", choices = c("Sample", "Metabolite"))),
                      column(3,selectInput("Manual.Indexes","Manual.Indexes", choices = c("Yes", "No")))
                    ),
                    #Action button for adding rows

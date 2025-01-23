@@ -2294,7 +2294,7 @@ server <- function(input, output, session){
       }
       
       # Save the entire plot_list to a .RData file in the subfolder as well as peaks_df
-      save(plot_list, peaks_df,peak_mt_df,peak_area_df, comment_df, file = file.path(subfolder_path, "plot_list_data.RData"))
+      save(plot_list, peaks_df, mi_df, peak_mt_df,peak_area_df, comment_df, file = file.path(subfolder_path, "plot_list_data.RData"))
       
       # Delete temporary mz5 file
     
@@ -2330,7 +2330,8 @@ server <- function(input, output, session){
     comment_df = NULL,
     peaks_df = NULL,
     peak_mt_df = NULL,
-    peak_area_df = NULL
+    peak_area_df = NULL,
+    mi_df = NULL
   )
   
   # Reactive expression to store the path to the selected results folder. Required to grab the correct annotation_data information from the subsequent runs and useful for processing data if you have closed the app.
@@ -2347,7 +2348,7 @@ server <- function(input, output, session){
     # Check if the file exists before attempting to load it
     if (file.exists(file.path(subfolder_path, "plot_list_data.RData"))) {
       load(file.path(subfolder_path, "plot_list_data.RData"))
-      return(list(plot_list = plot_list, peaks_df = peaks_df, peak_mt_df = peak_mt_df, peak_area_df = peak_area_df, comment_df = comment_df))
+      return(list(plot_list = plot_list, peaks_df = peaks_df, peak_mt_df = peak_mt_df, peak_area_df = peak_area_df, comment_df = comment_df, mi_df = mi_df))
     } else {
       warning("File not found: ", file.path(subfolder_path, "plot_list_data.RData"))
       return(NULL)
@@ -2365,10 +2366,10 @@ server <- function(input, output, session){
   })
   
   # Define reactive values for storing information from plot_list_data.Rdata
-  run_metadata <- reactiveValues(comment_df = NULL, plot_list = NULL, peaks_df = NULL, peak_mt_df = NULL, peak_area_df = NULL)
+  run_metadata <- reactiveValues(comment_df = NULL, plot_list = NULL, peaks_df = NULL, peak_mt_df = NULL, peak_area_df = NULL, mi_df = NULL)
   
   #Define reactive expression to store unaltered peak information to allow users to undo a deletion if a peak is deleted accidentally 
-  previous_metadata <- reactiveValues(comment_df = NULL, plot_list = NULL, peaks_df = NULL, peak_mt_df = NULL, peak_area_df = NULL)
+  previous_metadata <- reactiveValues(comment_df = NULL, plot_list = NULL, peaks_df = NULL, peak_mt_df = NULL, peak_area_df = NULL, mi_df = NULL)
   
   #Variable to save edited plot names for rerendering without rerendering ALL plots
   modified_peak_plots <- reactiveValues(names = character())
@@ -2493,7 +2494,7 @@ server <- function(input, output, session){
     # Check if the file exists before attempting to load it
     if (file.exists(file.path(subfolder_path, "plot_list_data.RData"))) {
       load(file.path(subfolder_path, "plot_list_data.RData"))
-      return(list(plot_list = plot_list, peaks_df = peaks_df, peak_mt_df = peak_mt_df, peak_area_df = peak_area_df, comment_df = comment_df))
+      return(list(plot_list = plot_list, peaks_df = peaks_df, peak_mt_df = peak_mt_df, peak_area_df = peak_area_df, comment_df = comment_df, mi_df = mi_df))
     } else {
       warning("File not found: ", file.path(subfolder_path, "plot_list_data.RData"))
       return(NULL)
@@ -2513,8 +2514,9 @@ server <- function(input, output, session){
     peaks_df <- plot_list_data_values$peaks_df
     peak_mt_df <- plot_list_data_values$peak_mt_df
     peak_area_df <- plot_list_data_values$peak_area_df
+    mi_df <- plot_list_data_values$mi_df
     
-    save(plot_list, comment_df, peaks_df, peak_mt_df, peak_area_df, file = file.path(subfolder_path, "plot_list_data.RData"))
+    save(plot_list, comment_df, peaks_df, peak_mt_df, mi_df, peak_area_df, file = file.path(subfolder_path, "plot_list_data.RData"))
     
     #Reload data
     reload_plot_data(subfolder_path)
@@ -2534,6 +2536,7 @@ server <- function(input, output, session){
     plot_list_data_values$peaks_df <- peaks_df
     plot_list_data_values$peak_mt_df <- peak_mt_df
     plot_list_data_values$peak_area_df <- peak_area_df
+    plot_list_data_values$mi_df <- mi_df
     
     # Ensure run_metadata also updates to reflect the changes
     run_metadata$plot_list <- plot_list
@@ -2541,6 +2544,7 @@ server <- function(input, output, session){
     run_metadata$peaks_df <- peaks_df
     run_metadata$peak_mt_df <- peak_mt_df
     run_metadata$peak_area_df <- peak_area_df
+    run_metadata$mi_df <- mi_df
   }
   
   #Intiialize reactive values 
@@ -2553,6 +2557,7 @@ server <- function(input, output, session){
     plot_list_data_values$peaks_df <- loaded_plot_list_data()$peaks_df
     plot_list_data_values$peak_mt_df <- loaded_plot_list_data()$peak_mt_df
     plot_list_data_values$peak_area_df <- loaded_plot_list_data()$peak_area_df
+    plot_list_data_values$mi_df <- loaded_plot_list_data()$mi_df
     
     # Store metadata in a separate reactive structure to allow users to access/undo peak deletions
     run_metadata$comment_df <- plot_list_data_values$comment_df
@@ -2561,6 +2566,7 @@ server <- function(input, output, session){
     run_metadata$peaks_df <- plot_list_data_values$peaks_df
     run_metadata$peak_mt_df <- plot_list_data_values$peak_mt_df
     run_metadata$peak_area_df <- plot_list_data_values$peak_area_df
+    run_metadata$mi_df <- plot_list_data_values$mi_df
   })
   
   ######4.4.2 Server logic for deleting peaks in plots######
@@ -2573,6 +2579,7 @@ server <- function(input, output, session){
     previous_metadata$peaks_df <- run_metadata$peaks_df
     previous_metadata$peak_mt_df <- run_metadata$peak_mt_df
     previous_metadata$peak_area_df <- run_metadata$peak_area_df
+    previous_metadata$mi_df <- run_metadata$mi_df
     
     selected_rows <- input$peak_info_table_rows_selected
     
@@ -2662,6 +2669,7 @@ server <- function(input, output, session){
     run_metadata$peaks_df <- previous_metadata$peaks_df
     run_metadata$peak_mt_df <- previous_metadata$peak_mt_df
     run_metadata$peak_area_df <- previous_metadata$peak_area_df
+    run_metadata$mi_df <- previous_metadata$mi_df
 
     # Extract objects from run_metadata
     plot_list <- run_metadata$plot_list
@@ -2669,10 +2677,11 @@ server <- function(input, output, session){
     peaks_df <- run_metadata$peaks_df
     peak_mt_df <- run_metadata$peak_mt_df
     peak_area_df <- run_metadata$peak_area_df
+    mi_df <- run_metadata$mi_df
     
     # Save the reverted state back to the file
     subfolder_path <- file.path(input$results_folder, "Data", run_metadata$file_name)
-    save(plot_list, comment_df, peaks_df, peak_mt_df, peak_area_df, file = file.path(subfolder_path, "plot_list_data.RData"))
+    save(plot_list, comment_df, mi_df,  peaks_df, peak_mt_df, peak_area_df, mi_df, file = file.path(subfolder_path, "plot_list_data.RData"))
     
     # Update the UI to reflect the reverted state
     output$peak_info_table <- DT::renderDataTable({
@@ -2695,7 +2704,7 @@ server <- function(input, output, session){
 
   ######4.6.1 Defining functions######
    #ggplot function
-   plot_function <- function(eie_data, annotation_data, integration_data, label_data, x_axis_data, y_axis_data, selected_file, font_size_1, font_size_2){
+   plot_function <- function(eie_data, annotation_data, integration_data, label_data, x_axis_data, y_axis_data, base_file_name, font_size_1, font_size_2){
   
      extra_space <- ifelse(x_axis_data[1] > 70, 1, 0)
   
@@ -2711,7 +2720,7 @@ server <- function(input, output, session){
        scale_x_continuous(name = "Migration Time (Minutes)",
                           breaks = scales::pretty_breaks(n = 10))+
        ggtitle(paste(label_data[1], " EIE", " (m/z = ", label_data[2],")",sep = ""),
-              subtitle = paste("Data File: ", selected_file)) +
+              subtitle = paste("Data File: ", base_file_name)) +
        geom_ribbon(data = integration_data,
                    aes(x = mt.seconds/60, ymax = intensity, ymin = baseline, fill = peak.number),
                    alpha =0.4) +
@@ -2792,8 +2801,6 @@ server <- function(input, output, session){
    }
   
    #Function for redoing the Metabolite Peak Areas.csv
-   
-   
    regenerate_metabolite_peak_areas <- function() {
      
      # Initialize an empty list to store peak_area_df data frames
@@ -2871,17 +2878,171 @@ server <- function(input, output, session){
     
     plotly_objects <- data_plotly
     
-    # Clear all objects except plotly_objects
-    rm(list = setdiff(ls(), "plotly_objects"))
-    
     # Save data file and overwtie previously excisting .RData file
     save(plotly_objects, file = file.path(input$results_folder, "plotly_objects.RData"), compress = "xz")
   }
+   
+   #Function for regenrating ggplots
+   regenerate_ggplot <- function(){
+
+     #Define plotting houskeeping variables
+     plot_format <- parametersData()$plot.format
+     name_vec <- c(refMassListData()$name, massData()$name)
+     num_of_metabolites <- nrow(massData())
+     num_of_is <- nrow(refMassListData())
+
+     # Extract the base file name from the selected .mz5 file
+     base_file_name <- sub("\\.mz5$", "", input$file_selector)
+
+     # Get the list of modified plots
+     modified_plots <- modified_peak_plots$names
+
+
+
+     #Load data for plotting along with mi_df to determine which metabolites use MI and which use RMTs
+     plot_list <- plot_list_data_values$plot_list
+     mi_df <- plot_list_data_values$mi_df
+
+     #Regenerate modified plots using the new data
+     for (plotname in modified_plots) {
+       if (plotname %in% names(plot_list)) {
+         
+         #Load plot data
+         plot_data <- plot_list[[plotname]]
+         
+         #Define index for correctly naming saved files.
+         plot_index <- which(name_vec == plotname)
+         
+         #Regenrate plots according to format set by previously saved plots when plot.format is set to sample. 
+         #NoteL required since file naming mechanics are different depending on the plot format saved
+         if (plot_format == "Sample") {
+
+         #Plot both internal standard and analyte plots 
+         if (plotname %in% name_vec[1:num_of_is]) {
+           font_size_1 <- 7
+           font_size_2 <- 25
+           
+           #Save internal standard plots 
+           folder <- "Internal Standards"
+           ggsave(filename = paste(plot_index, "_", plotname, ".png", sep = ""),
+                  width = 16,
+                  height = 9,
+                  plot = plot_function(eie_data = plot_data$eie_data,
+                                       annotation_data = plot_data$annotation_data,
+                                       integration_data = plot_data$integration_data,
+                                       label_data = plot_data$label_data,
+                                       x_axis_data = plot_data$x_axis_data,
+                                       y_axis_data = plot_data$y_axis_data,
+                                       base_file_name = base_file_name,
+                                       font_size_1 = font_size_1,
+                                       font_size_2 = font_size_2),
+                  path = paste(input$results_folder, "/Plots/", folder, "/", base_file_name, sep = ""))}
+           
+          #Save metabolite analyte plots
+         else {
+           
+           folder <- "Analytes"
+           
+           #Analytes using RMT
+           if (mi_df$description[which(name_vec == plotname) - num_of_is] != "mi") {
+             
+             font_size_1 <- 4
+             font_size_2 <- 12
+             is_index <- which(name_vec == mi_df$description[which(name_vec == plotname) - num_of_is])
+             
+             figure <- ggarrange(plot_function(eie_data = plot_data$eie_data,
+                                               annotation_data = plot_data$annotation_data,
+                                               integration_data = plot_data$integration_data,
+                                               label_data = plot_data$label_data,
+                                               x_axis_data = c(min(plot_data$eie_data$mt.seconds), max(plot_data$eie_data$mt.seconds)),
+                                               y_axis_data = plot_data$y_axis_data,
+                                               base_file_name = base_file_name,
+                                               font_size_1 = font_size_1,
+                                               font_size_2 = font_size_2),
+                                 plot_function(eie_data = plot_data$eie_data,
+                                               annotation_data = plot_data$annotation_data,
+                                               integration_data = plot_data$integration_data,
+                                               label_data = plot_data$label_data,
+                                               x_axis_data = plot_data$x_axis_data,
+                                               y_axis_data = plot_data$y_axis_data,
+                                               base_file_name = base_file_name,
+                                               font_size_1 = font_size_1,
+                                               font_size_2 = font_size_2),
+                                 plot_function(eie_data = plot_list[[is_index]]$eie_data,
+                                               annotation_data = plot_list[[is_index]]$annotation_data,
+                                               integration_data = plot_list[[is_index]]$integration_data,
+                                               label_data = plot_list[[is_index]]$label_data,
+                                               x_axis_data = plot_list[[is_index]]$x_axis_data,
+                                               y_axis_data = plot_list[[is_index]]$y_axis_data,
+                                               base_file_name = base_file_name,
+                                               font_size_1 = font_size_1,
+                                               font_size_2 = font_size_2),
+                                 ncol = 1, nrow = 3)
+             ggsave(filename = paste(plot_index, "_", plotname, ".png", sep = ""),
+                    width = 16,
+                    height = 9,
+                    plot = figure,
+                    path = paste(input$results_folder, "/Plots/", folder, "/", base_file_name, sep = ""))
+           } 
+           
+           #Analytes using MI
+           else {
+             font_size_1 <- 4
+             font_size_2 <- 12
+             figure <- ggarrange(plot_function(eie_data = plot_data$eie_data,
+                                               annotation_data = plot_data$annotation_data,
+                                               integration_data = plot_data$integration_data,
+                                               label_data = plot_data$label_data,
+                                               x_axis_data = c(min(plot_data$eie_data$mt.seconds), max(plot_data$eie_data$mt.seconds)),
+                                               y_axis_data = plot_data$y_axis_data,
+                                               base_file_name = base_file_name,
+                                               font_size_1 = font_size_1,
+                                               font_size_2 = font_size_2),
+                                 plot_function(eie_data = plot_data$eie_data,
+                                               annotation_data = plot_data$annotation_data,
+                                               integration_data = plot_data$integration_data,
+                                               label_data = plot_data$label_data,
+                                               x_axis_data = plot_data$x_axis_data,
+                                               y_axis_data = plot_data$y_axis_data,
+                                               base_file_name = base_file_name,
+                                               font_size_1 = font_size_1,
+                                               font_size_2 = font_size_2),
+                                 ncol = 1, nrow = 2)
+             ggsave(filename = paste(plot_index, "_", plotname, ".png", sep = ""),
+                    width = 16,
+                    height = 9,
+                    plot = figure,
+                    path = paste(input$results_folder, "/Plots/", folder, "/", base_file_name, sep = ""))
+           }
+          }
+         } 
+        }
+      }
+
+     #Regenerate plots according to "Metabolite" format
+     if (plot_format == "Metabolite") {
+       for (n in 1:length(name_vec)) {
+         folder <- name_vec[n]
+         ggsave(filename = paste(base_file_name, ".png", sep = ""),
+                width = 16,
+                height = 9,
+                plot = plot_function(eie_data = plot_list[[n]]$eie_data,
+                                     annotation_data = plot_list[[n]]$annotation_data,
+                                     integration_data = plot_list[[n]]$integration_data,
+                                     label_data = plot_list[[n]]$label_data,
+                                     x_axis_data = plot_list[[n]]$x_axis_data,
+                                     y_axis_data = plot_list[[n]]$y_axis_data),
+                path = paste(input$results_folder, "/Plots/", folder, "/", sep = ""))
+       }
+     }
+   }
+
   
   #Action button for regenerating plots
   observeEvent(input$regenerateplots, {
     regenerate_plots()
-    regenerate_metabolite_peak_areas
+    regenerate_metabolite_peak_areas()
+    regenerate_ggplot()
     modified_peak_plots$names <- character(0)
     
   })
@@ -2903,7 +3064,6 @@ server <- function(input, output, session){
   #     )
   #   )
   # })
-  #  
 
 }#Closing bracket
   

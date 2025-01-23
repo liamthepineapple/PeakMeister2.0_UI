@@ -2702,7 +2702,8 @@ server <- function(input, output, session){
   
   #####4.6 Regenerate plots#####
 
-  ######4.6.1 Defining functions######
+  ######4.6.1 Defining Plotting Functions######
+  
    #ggplot function
    plot_function <- function(eie_data, annotation_data, integration_data, label_data, x_axis_data, y_axis_data, base_file_name, font_size_1, font_size_2){
   
@@ -2800,6 +2801,7 @@ server <- function(input, output, session){
        ) %>% config(editable = TRUE)
    }
   
+   ######4.6.2 Defining functions for modifying saved peak area information######
    #Function for redoing the Metabolite Peak Areas.csv
    regenerate_metabolite_peak_areas <- function() {
      
@@ -2827,7 +2829,7 @@ server <- function(input, output, session){
                row.names = FALSE)
    }
    
-  ######4.6.2 Function for regenerating plots######
+  ######4.6.3 Function for regenerating plotly plots######
    
   regenerate_plots <- function() {
     
@@ -2882,7 +2884,7 @@ server <- function(input, output, session){
     save(plotly_objects, file = file.path(input$results_folder, "plotly_objects.RData"), compress = "xz")
   }
    
-   #Function for regenrating ggplots
+   ######4.6.4 Function for regenerating ggplots plots and saving them to specified locations######
    regenerate_ggplot <- function(){
 
      #Define plotting houskeeping variables
@@ -3038,6 +3040,7 @@ server <- function(input, output, session){
    }
 
   
+   ######4.6.5 Applying functions######
   #Action button for regenerating plots
   observeEvent(input$regenerateplots, {
     regenerate_plots()
@@ -3047,10 +3050,12 @@ server <- function(input, output, session){
     
   })
   
-  #Table to list plots being regenerated
+  #Table to list modified plots that will be regenerated
   output$modified_peak_plots_table <- DT::renderDataTable({
     data.frame(Modified_Plots = modified_peak_plots$names)
   }, selection = 'single')
+  
+  #####4.7 Adjusting integration and adding peaks#####
   
   # # Observe manual integration button click
   # observeEvent(input$manual_integrate, {

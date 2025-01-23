@@ -56,6 +56,10 @@ ui <- dashboardPage(
         .content-wrapper {
           padding-bottom: 100px;
         }
+        .selectize-dropdown-content {
+        max-height: 200px;
+        overflow-y: auto;
+      }
       "))
     ),useShinyjs(),
     use_waiter(),

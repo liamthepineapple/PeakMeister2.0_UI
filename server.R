@@ -12,13 +12,9 @@ server <- function(input, output, session){
   
   # Initialize plotly_data as an empty reactive variable
   plotly_data <- reactiveVal(list())
-  
-  plotly_test <- reactiveVal(list())
+
   # Reactive values to store marker positions
   line_positions <- reactiveValues(red = 2, blue = 4)
-  
- 
-  
   
   ####1. About tab####
   #Functions for "About" tab page -> reading information from markdown files
@@ -3039,15 +3035,21 @@ server <- function(input, output, session){
      }
    }
 
-  
    ######4.6.5 Applying functions######
   #Action button for regenerating plots
   observeEvent(input$regenerateplots, {
     regenerate_plots()
     regenerate_metabolite_peak_areas()
-    regenerate_ggplot()
-    modified_peak_plots$names <- character(0)
     
+    # Check if required data is populated before running regenerate_ggplot
+    if (nrow(massData()) == 0 || nrow(refMassListData()) == 0 || nrow(parametersData()) == 0) {
+      showNotification("Upload Mass List and Parameters Information!", type = "error")
+    } else {
+      regenerate_ggplot()
+      showNotification("Successfully regenerated plots and updated metadata", type = "message")
+    }
+    #Reset modified peaks table 
+    modified_peak_plots$names <- character(0)
   })
   
   #Table to list modified plots that will be regenerated

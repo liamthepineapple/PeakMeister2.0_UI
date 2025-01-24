@@ -132,7 +132,7 @@ ui <- dashboardPage(
           
           #####4.2 Reference Mass List Subtab#####
           tabPanel("Reference Mass List",
-                   fileInput("massList", "Upload Mass List and Paramaters (Excel)", accept = c(".xlsx")),
+                   fileInput("massList", "Upload Mass List and Parameters (Excel)", accept = c(".xlsx")),
                    div(style = "overflow-x: auto;",
                    DT::dataTableOutput("refMassListData")),
                    fluidRow(
@@ -166,7 +166,7 @@ ui <- dashboardPage(
                    
           #####4.3 Parameters list subtab#####
           tabPanel("Parameters",
-                   fileInput("massList", "Upload Mass List and Paramaters (Excel)", accept = c(".xlsx")),
+                   fileInput("massList", "Upload Mass List and Parameters (Excel)", accept = c(".xlsx")),
                    div(style = "overflow-x: auto;",
                    DT::dataTableOutput("parametersData")),
                    fluidRow(
@@ -294,10 +294,10 @@ ui <- dashboardPage(
                        selectInput("file_selector", "Select File:", choices = NULL),
                        #Select results folder to work out of 
                        selectInput("results_folder", "Select Results Folder:", choices = NULL),
-                      
                        #Select plots, display plots
-                       #selectInput("plot_selector","Select Plot", choices = NULL),
-                       DTOutput("plot_table"), DTOutput("modified_peak_plots_table"),
+                       tags$h4(style = "text-decoration: underline;", "Loaded Plots"),DTOutput("plot_table"), 
+                       #Datatable for displaying modified plots
+                       tags$h4(style = "text-decoration: underline;", "Edited plots to be regenerated"),DTOutput("modified_peak_plots_table"),
                        #Action button for manual integration 
                        actionButton("manual_integrate", "Manual Integrate")),
                 #Display selected plot 
@@ -307,7 +307,7 @@ ui <- dashboardPage(
                        textOutput("red_line_position"),
                        textOutput("blue_line_position"),
                        #Data table for peak positions
-                       DTOutput("peak_info_table"),
+                       tags$h4(style = "text-decoration: underline;", "Peak Position Information"),DTOutput("peak_info_table"),
                        #Action button for deleting peaks
                        actionButton("delete_peak", "Delete Selected Peaks"),
                        #Action button for undoing peak deletion

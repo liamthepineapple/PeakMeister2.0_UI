@@ -86,7 +86,7 @@ PeakMeister has only two requirements to get you up and running and all required
   * Convert all your data files to open-source mz5 files using [ProteoWizard](https://proteowizard.sourceforge.io/)
   * Provide a targeted mass list and the corresponding parameters using the provided "Mass List and Parameters.xlsx" template
 
-Use the project file to open the R script titled "code" and execute the script to begin pre-processing your data
+Use the project file to open the R script titled "app.R" and execute the script to begin pre-processing your data
 
 ### **Detailed Usage**
 ***

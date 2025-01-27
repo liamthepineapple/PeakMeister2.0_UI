@@ -3075,6 +3075,7 @@ server <- function(input, output, session){
   ######4.7.2 Integration function######
   manual_peak_integration <- function(peak_number){
     
+    #define variables required for plotting 
     selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
     base_file_name <- sub("\\.mz5$", "", input$file_selector)
     plotname <- sub(paste0("^", base_file_name, "_"), "", selected_plot_name)
@@ -3093,27 +3094,21 @@ server <- function(input, output, session){
     red_line <- as.numeric(red_line) * 60
     blue_line <- as.numeric(blue_line) *60
     
-    # # Find the row corresponding to the peak being integrated
-    # peak_row <- which(peaks_df$peak.number == input$peak_info_table_rows_selected)
-    
-    # Filter the data between the red and blue lines
+    # Filter the data between the red and blue lines. This defines the integration boundaries 
     integrated_data <- eie_df[eie_df$mt.seconds >= red_line & eie_df$mt.seconds <= blue_line, ]
     
-  
-    # Calculate the area under the curve
+    #Define name that will macth to existing metadata.
     intensity_column <- paste(plotname, "intensity", sep = " ")
-    
     print("starting integration")
     
+    #Load variables used for integrating 
     time <- integrated_data$mt.seconds
     intensity <- integrated_data[[intensity_column]]
-    
      
-     # Find the apex (maximum intensity) within the range
+     # Find the peak apex within the range
      apex_index <- which.max(intensity)
      apex_time <- time[apex_index]
      apex_intensity <- intensity[apex_index]
-     
      
      # Calculate the area using the trapezoidal rule
      area <- tryCatch({
@@ -3125,13 +3120,13 @@ server <- function(input, output, session){
            absolutearea = FALSE,
            na.rm = FALSE)
      }, error = function(e) {
-       print(paste("Error in AUC calculation:", e))
+       showNotification(paste("Error in AUC calculation:", e), type = "error")
        return(NA)
      })
      
-     
+     #Check is error is NA or not
      if (is.na(area)) {
-       print("Error: Area calculation returned NA")
+       showNotification("Error: Area calculation returned NA", type = "error")
        return(NA)
      }
      
@@ -3146,7 +3141,6 @@ server <- function(input, output, session){
        input$peak_info_table_rows_selected
      }
      
-     
      # Update the specific row in peaks_df with the new integration data
      peaks_df[selected_peak_index, paste0(plotname, ".start.seconds")] <- red_line
      peaks_df[selected_peak_index, paste0(plotname, ".apex.seconds")] <- apex_time
@@ -3159,14 +3153,12 @@ server <- function(input, output, session){
      # Update comment_df to remove any comments for the metabolite
      comment_df <- plot_list_data_values$comment_df
      if (plotname %in% colnames(comment_df)) {
-       comment_df[selected_peak_index, plotname] <- ""
-     }
+       comment_df[selected_peak_index, plotname] <- ""}
      
      # Update peak_area_df with the new peak area
      peak_area_df[selected_peak_index, paste0(plotname)] <- area
      
-     
-     # Create mini integration_data for the manually integrated peak
+     # Create temporary integration_data for the manually integrated peak to add to existing integration-data later
      temp_integration_data <- data.frame(
        "peak.number" = selected_peak_index,
        "mt.seconds" = time,
@@ -3174,17 +3166,16 @@ server <- function(input, output, session){
        "baseline" = min(intensity)
      )
      
-     # Load existing integration_data
+     # Load existing integration_data. Convert the peak number from factor to character 
      integration_data <- plot_data$integration_data
        integration_data <- as.data.frame(lapply(integration_data, function(x) if(is.factor(x)) as.character(x) else x))
      
-     # Check if the peak number exists in the existing integration_data
+     # Check if the peak number exists in the existing integration_data and replace existing data if peak is already there
      if (selected_peak_index %in% integration_data$peak.number) {
-       # Replace the existing data for the specific peak number
        integration_data <- integration_data[integration_data$peak.number != selected_peak_index, ]
      }
      
-     # Add the mini integration_data to the existing integration_data
+     # Add the temporary integration_data to the existing integration_data
      integration_data <- rbind(integration_data, temp_integration_data)
      
      # Update annotation_data with the new peak.apex.seconds and peak.height.counts
@@ -3193,17 +3184,17 @@ server <- function(input, output, session){
      annotation_data$peak.height.counts[selected_peak_index] <- apex_intensity
      annotation_data$comment[selected_peak_index] <- ""
      
-     # Update plot_list with the new data
+     # Update values with new data
      plot_list_data_values$plot_list[[plotname]]$integration_data <- integration_data
      plot_list_data_values$plot_list[[plotname]]$annotation_data <- annotation_data
      plot_list_data_values$comment_df <- comment_df
      plot_list_data_values$peak_area_df <- peak_area_df
+     plot_list_data_values$peaks_df <- peaks_df
      
      # Mark the plot as modified
      modified_peak_plots$names <- unique(c(modified_peak_plots$names, plotname))
      
      # Save the updated peaks_df back to the plot_list_data.RData file
-     plot_list_data_values$peaks_df <- peaks_df
      save_plot_data(plotname)
      
      #Clear workspace
@@ -3214,16 +3205,15 @@ server <- function(input, output, session){
   }
   
   
-  # Manually adjust integration 
+  #Manually adjust integration 
   observeEvent(input$manual_integrate, {
-    if (is.null(input$peak_info_table_rows_selected) || length(input$peak_info_table_rows_selected) == 0) {
-      peak_input_modal()
-    } else {
+    #Check to see if the user has selected a row in the peak info table. If not, launch modal function.
+    if (is.null(input$peak_info_table_rows_selected) || length(input$peak_info_table_rows_selected) == 0) {peak_input_modal()} else {
       manual_peak_integration(input$peak_info_table_rows_selected)
       regenerate_metabolite_peak_areas()
     }
     
-    # Update the UI to reflect the reverted state
+    #Update the UI to reflect new data
     output$peak_info_table <- DT::renderDataTable({
       req(input$plot_table_rows_selected)
       selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
@@ -3240,13 +3230,13 @@ server <- function(input, output, session){
     }, options = list(pageLength = 13), selection = 'multiple')
   })
   
-  # Observe the confirmation button in the modal
+  #Button for if user uses modal peak selection
   observeEvent(input$confirm_peak_number, {
     removeModal()
     manual_peak_integration(input$manual_peak_number)
     regenerate_metabolite_peak_areas()
     
-    # Update the UI to reflect the reverted state
+    #Update the UI to reflect new data
     output$peak_info_table <- DT::renderDataTable({
       req(input$plot_table_rows_selected)
       selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]

@@ -6,7 +6,7 @@
 if (!require("pacman", quietly = TRUE)) install.packages("pacman")
 if (!require("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 
-pacman::p_load("shiny","shinyBS", "tools","waiter","shinyFiles","RColorBrewer","shinycssloaders", "shinydashboard", "DT", "shinyalert","ggplot2","ggpubr", "plotly","hash","pracma", "tidyverse", "stats", "DescTools", "xcms", "rlang","markdown", "openxlsx","readxl","writexl","fontawesome", "MSnbase", "mzR","shinyjs","later",
+pacman::p_load("shiny","shinyBS", "tools","waiter","shinyFiles","RColorBrewer","shinycssloaders", "shinydashboard", "DT", "shinyalert","ggplot2","ggpubr", "plotly","hash","pracma", "tidyverse", "stats", "DescTools", "xcms", "rlang","markdown", "openxlsx","readxl","writexl","fontawesome", "MSnbase", "mzR","shinyjs",
                install = TRUE)
 
 #Title of app
@@ -297,9 +297,7 @@ ui <- dashboardPage(
                        #Select plots, display plots
                        tags$h4(style = "text-decoration: underline;", "Loaded Plots"),DTOutput("plot_table"), 
                        #Datatable for displaying modified plots
-                       tags$h4(style = "text-decoration: underline;", "Edited plots to be regenerated"),DTOutput("modified_peak_plots_table"),
-                       #Action button for manual integration 
-                       actionButton("manual_integrate", "Manual Integrate")),
+                       tags$h4(style = "text-decoration: underline;", "Edited plots to be regenerated"),DTOutput("modified_peak_plots_table")),
                 #Display selected plot 
                 column(8,
                        plotlyOutput("selected_plot", height = "600px"),
@@ -313,7 +311,9 @@ ui <- dashboardPage(
                        #Action button for undoing peak deletion
                        actionButton("undo", "Undo Peak Deletion"),
                        #Action button for regenerating plots
-                       actionButton("regenerateplots", "Regenerate Changed Plots"), 
+                       actionButton("regenerateplots", "Regenerate Changed Plots"),
+                       #Action button for manual integration 
+                       actionButton("manual_integrate", "Manually Adjust Integration"),
                 )
               )
             )

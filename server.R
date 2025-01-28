@@ -3064,7 +3064,7 @@ server <- function(input, output, session){
   peak_input_modal <- function() {
     showModal(modalDialog(
       title = "Manual Peak Input",
-      textInput("manual_peak_number", "Enter peak number of peak you are integrating:", ""),
+      textInput("manual_peak_number", "Enter peak number of peak you are modifying:", ""),
       footer = tagList(
         modalButton("Cancel"),
         actionButton("confirm_peak_number", "Confirm")
@@ -3254,25 +3254,21 @@ server <- function(input, output, session){
   })
   
   ######4.7.4 Adjusting integration baselines######
+  #Reactive value for turning the baseline adjustment mode on or off for individual adjustment.
   baseline_adjustment_mode <- reactiveVal(FALSE)
   
-  # Observe click events on the plot only when baseline adjustment mode is active
-  observeEvent(event_data("plotly_click"), {
-    if (baseline_adjustment_mode()) {
-      click_data <- event_data("plotly_click")
-      if (!is.null(click_data)) {
-        clicked_x <- click_data$x
-        clicked_y <- click_data$y
-        
-        print(paste("Clicked at:", clicked_x, clicked_y))
-        # Store the clicked position for baseline adjustment
-        session$userData$clicked_position <- list(x = clicked_x, y = clicked_y)
-      }
-    }
-  })
+  #Modal Function for specifying which peak you are editing if user fails to select a peak.
+  peak_input_modal_adjustment <- function() {
+    showModal(modalDialog(
+      title = "Manual Peak Input",
+      textInput("baseline_peak_number", "Enter peak number of peak you are adjusting:", ""),
+      footer = tagList(
+        modalButton("Cancel"),
+        actionButton("baseline_peak_number_adjustment", "Confirm")
+      )))}
   
   #Function for adjusting individual baseline
-  adjust_individual_baseline <- function(){
+  adjust_individual_baseline <- function(peak_index = NULL){
     
     #define variables required for plotting 
     selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
@@ -3289,12 +3285,11 @@ server <- function(input, output, session){
     peaks_df <- plot_list_data_values$peaks_df
     peak_area_df <- plot_list_data_values$peak_area_df
     
-    # Determine the peak from the selected row in the peak info table. Used for accessing specific metadata
-    peak_index <- input$peak_info_table_rows_selected
-    
-    if (length(peak_index) == 0) {
-      showNotification("No peak selected in peak info table", type = "error")
-      return(NULL)
+    # Determine the peak from the selected row in the peak info table or from the modal input
+    if (is.null(peak_index)) {
+      peak_index <- input$peak_info_table_rows_selected
+    } else {
+      peak_index <- as.numeric(peak_index)
     }
     
     # Get the integration boundaries from peaks_df
@@ -3378,7 +3373,7 @@ server <- function(input, output, session){
     gc()
     
     showNotification("Baseline adjusted for individual peak. Area Updated. Metadata updated", type = "message")
-    }
+  }
   
   # Toggle baseline adjustment mode for individual peaks
   observeEvent(input$adjust_indiv_baseline, {
@@ -3387,23 +3382,21 @@ server <- function(input, output, session){
     showNotification("Click on the plot to define the baseline for the individual peak", type = "message")
   })
   
-  # Consolidated observer for plotly click events
+  # Observe click events on the plot only when baseline adjustment mode is active
   observeEvent(event_data("plotly_click"), {
-    print("Plotly click event detected.")
     if (baseline_adjustment_mode()) {
       click_data <- event_data("plotly_click")
-      
       if (!is.null(click_data)) {
         clicked_x <- click_data$x
         clicked_y <- click_data$y
-        print(paste("Clicked at:", clicked_x, clicked_y))  
         
-        # Store clicked position in session data
+        print(paste("Clicked at:", clicked_x, clicked_y))
+        # Store the clicked position for baseline adjustment
         session$userData$clicked_position <- list(x = clicked_x, y = clicked_y)
         
-        print("starting adjustment")
-        
-        adjust_individual_baseline()
+        # Check if a peak is selected
+        if (is.null(input$peak_info_table_rows_selected) || length(input$peak_info_table_rows_selected) == 0) {peak_input_modal_adjustment()} else {adjust_individual_baseline(input$peak_info_table_rows_selected)
+        }
         
         # Deactivate baseline adjustment mode after handling the click
         baseline_adjustment_mode(FALSE)
@@ -3416,6 +3409,11 @@ server <- function(input, output, session){
     }
   })
   
+  # Button for if user uses modal peak selection for baseline adjustment
+  observeEvent(input$baseline_peak_number_adjustment, {
+    removeModal()
+    adjust_individual_baseline(input$baseline_peak_number)
+  })
   
   
   

@@ -3060,7 +3060,7 @@ server <- function(input, output, session){
   
   #####4.7 Adjusting integration and adding peaks#####
   
-  ######4.7.1 Function fir manual peak number input######
+  ######4.7.1 Function for manual peak number input######
   peak_input_modal <- function() {
     showModal(modalDialog(
       title = "Manual Peak Input",
@@ -3205,7 +3205,7 @@ server <- function(input, output, session){
   }
   
   
-  #Manually adjust integration 
+  ######4.7.3 Applying Integration Functions######
   observeEvent(input$manual_integrate, {
     #Check to see if the user has selected a row in the peak info table. If not, launch modal function.
     if (is.null(input$peak_info_table_rows_selected) || length(input$peak_info_table_rows_selected) == 0) {peak_input_modal()} else {
@@ -3252,7 +3252,174 @@ server <- function(input, output, session){
       }
     }, options = list(pageLength = 13), selection = 'multiple')
   })
-
+  
+  ######4.7.4 Adjusting integration baselines######
+  baseline_adjustment_mode <- reactiveVal(FALSE)
+  
+  # Observe click events on the plot only when baseline adjustment mode is active
+  observeEvent(event_data("plotly_click"), {
+    if (baseline_adjustment_mode()) {
+      click_data <- event_data("plotly_click")
+      if (!is.null(click_data)) {
+        clicked_x <- click_data$x
+        clicked_y <- click_data$y
+        
+        print(paste("Clicked at:", clicked_x, clicked_y))
+        # Store the clicked position for baseline adjustment
+        session$userData$clicked_position <- list(x = clicked_x, y = clicked_y)
+      }
+    }
+  })
+  
+  #Function for adjusting individual baseline
+  adjust_individual_baseline <- function(){
+    
+    #define variables required for plotting 
+    selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
+    base_file_name <- sub("\\.mz5$", "", input$file_selector)
+    plotname <- sub(paste0("^", base_file_name, "_"), "", selected_plot_name)
+    
+    # Use clicked Y value as the new baseline
+    new_baseline <- session$userData$clicked_position$y
+    print(paste("New baseline:", new_baseline))  # Debugging
+    
+    #load plot data
+    plot_data <- plot_list_data_values$plot_list[[plotname]]
+    eie_df <- plot_data$eie_data
+    peaks_df <- plot_list_data_values$peaks_df
+    peak_area_df <- plot_list_data_values$peak_area_df
+    
+    # Determine the peak from the selected row in the peak info table. Used for accessing specific metadata
+    peak_index <- input$peak_info_table_rows_selected
+    
+    if (length(peak_index) == 0) {
+      showNotification("No peak selected in peak info table", type = "error")
+      return(NULL)
+    }
+    
+    # Get the integration boundaries from peaks_df
+    left_boundary <- peaks_df[peak_index, paste0(plotname, ".start.seconds")]
+    right_boundary <- peaks_df[peak_index, paste0(plotname, ".end.seconds")]
+    
+    # Filter the data between the left and right boundaries
+    integrated_data <- eie_df[eie_df$mt.seconds >= left_boundary & eie_df$mt.seconds <= right_boundary, ]
+    
+    # Define name that will match to existing metadata
+    intensity_column <- paste(plotname, "intensity", sep = " ")
+    
+    # Load variables used for integrating
+    time <- integrated_data$mt.seconds
+    intensity <- integrated_data[[intensity_column]]
+    
+    # Calculate the area using the trapezoidal rule with the new baseline
+    area <- tryCatch({
+      AUC(time,
+          intensity,
+          method = "trapezoid",
+          from = min(time),
+          to = max(time),
+          absolutearea = FALSE,
+          na.rm = FALSE)
+    }, error = function(e) {
+      showNotification(paste("Error in AUC calculation:", e), type = "error")
+      return(NA)
+    })
+    
+    # Check if error is NA or not
+    if (is.na(area)) {
+      showNotification("Error: Area calculation returned NA", type = "error")
+      return(NA)
+    }
+    
+    # Adjust for baseline
+    baseline_adjustment <- (right_boundary - left_boundary) * new_baseline
+    area <- area - baseline_adjustment
+    
+    # Update the specific row in peaks_df with the new integration data
+    peaks_df[peak_index, paste0(plotname, ".start_intensity")] <- min(intensity)
+    peaks_df[peak_index, paste0(plotname, ".end_intensity")] <- min(intensity)
+    peaks_df[peak_index, paste0(plotname, ".peak.area")] <- area
+    
+    # Update peak_area_df with the new peak area
+    peak_area_df[peak_index, paste0(plotname)] <- area
+    
+    # Create temporary integration_data for the manually integrated peak to add to existing integration-data later
+    temp_integration_data <- data.frame(
+      "peak.number" = peak_index,
+      "mt.seconds" = time,
+      "intensity" = intensity,
+      "baseline" = new_baseline)
+    
+    # Load existing integration_data. Convert the peak number from factor to character 
+    integration_data <- plot_data$integration_data
+    integration_data <- as.data.frame(lapply(integration_data, function(x) if(is.factor(x)) as.character(x) else x))
+    
+    # Check if the peak number exists in the existing integration_data and replace existing data if peak is already there
+    if (peak_index %in% integration_data$peak.number) {
+      integration_data <- integration_data[integration_data$peak.number != peak_index, ]
+    }
+    
+    # Add the temporary integration_data to the existing integration_data with the new baseline
+    integration_data <- rbind(integration_data, temp_integration_data)
+    
+    # Update values with new data
+    plot_list_data_values$plot_list[[plotname]]$integration_data <- integration_data
+    plot_list_data_values$peak_area_df <- peak_area_df
+    plot_list_data_values$peaks_df <- peaks_df
+    
+    # Mark the plot as modified
+    modified_peak_plots$names <- unique(c(modified_peak_plots$names, plotname))
+    
+    # Save the updated peaks_df back to the plot_list_data.RData file
+    save_plot_data(plotname)
+    
+    # Clear workspace
+    rm(list = c())
+    gc()
+    
+    showNotification("Baseline adjusted for individual peak. Area Updated. Metadata updated", type = "message")
+    }
+  
+  # Toggle baseline adjustment mode for individual peaks
+  observeEvent(input$adjust_indiv_baseline, {
+    baseline_adjustment_mode(TRUE)
+    showNotification("Baseline adjustment mode activated", type = "message")
+    showNotification("Click on the plot to define the baseline for the individual peak", type = "message")
+  })
+  
+  # Consolidated observer for plotly click events
+  observeEvent(event_data("plotly_click"), {
+    print("Plotly click event detected.")
+    if (baseline_adjustment_mode()) {
+      click_data <- event_data("plotly_click")
+      
+      if (!is.null(click_data)) {
+        clicked_x <- click_data$x
+        clicked_y <- click_data$y
+        print(paste("Clicked at:", clicked_x, clicked_y))  
+        
+        # Store clicked position in session data
+        session$userData$clicked_position <- list(x = clicked_x, y = clicked_y)
+        
+        print("starting adjustment")
+        
+        adjust_individual_baseline()
+        
+        # Deactivate baseline adjustment mode after handling the click
+        baseline_adjustment_mode(FALSE)
+      } else {
+        showNotification("No valid click data received.", type = "error")
+        showNotification("Error: No click detected on the plot.", type = "error")
+      }
+    } else {
+      showNotification("Baseline adjustment mode is inactive.", type = "message")  
+    }
+  })
+  
+  
+  
+  
+  
 }#Closing bracket
   
 

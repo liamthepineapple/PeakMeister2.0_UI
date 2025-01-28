@@ -314,6 +314,10 @@ ui <- dashboardPage(
                        actionButton("regenerateplots", "Regenerate Changed Plots"),
                        #Action button for manual integration 
                        actionButton("manual_integrate", "Manually Adjust Integration"),
+                       #Action button for adjusting baseline (across individual peaks)
+                       actionButton("adjust_indiv_baseline", "Adjust Individual Baseline"),
+                       #Action button for adjusting baseline (across all peaks)
+                       actionButton("adjust_all_baseline", "Adjust All Baselines"),
                 )
               )
             )

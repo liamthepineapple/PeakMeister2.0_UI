@@ -2422,7 +2422,7 @@ server <- function(input, output, session){
     if (is.null(plot)) {
       plotly_empty()
     } else {
-      plot
+      plot %>% event_register("plotly_click") %>% event_register("plotly_relayout")
     }
   })
   
@@ -2860,6 +2860,8 @@ server <- function(input, output, session){
           x_axis_data = plot_data$x_axis_data,
           y_axis_data = plot_data$y_axis_data)
         
+        plot <- event_register(plot, "plotly_click") 
+        
         #This is stupid. Not sure why I need this here but this line is neccesary to save plots correctly.
         plotly_copy <- plotly::plotly_build(plot)
         
@@ -3253,9 +3255,10 @@ server <- function(input, output, session){
     }, options = list(pageLength = 13), selection = 'multiple')
   })
   
-  ######4.7.4 Adjusting integration baselines######
+  ######4.7.4 Logic for Adjusting Individual Integration baselines######
   #Reactive value for turning the baseline adjustment mode on or off for individual adjustment.
   baseline_adjustment_mode <- reactiveVal(FALSE)
+  plotbaseline_adjustment_mode <- reactiveVal(FALSE)
   
   #Modal Function for specifying which peak you are editing if user fails to select a peak.
   peak_input_modal_adjustment <- function() {
@@ -3347,6 +3350,7 @@ server <- function(input, output, session){
     
     # Load existing integration_data. Convert the peak number from factor to character 
     integration_data <- plot_data$integration_data
+    
     integration_data <- as.data.frame(lapply(integration_data, function(x) if(is.factor(x)) as.character(x) else x))
     
     # Check if the peak number exists in the existing integration_data and replace existing data if peak is already there
@@ -3375,9 +3379,11 @@ server <- function(input, output, session){
     showNotification("Baseline adjusted for individual peak. Area Updated. Metadata updated", type = "message")
   }
   
+  ######4.7.5 Applying manual basline adjustment on individual peaks######
   # Toggle baseline adjustment mode for individual peaks
   observeEvent(input$adjust_indiv_baseline, {
     baseline_adjustment_mode(TRUE)
+    plotbaseline_adjustment_mode(FALSE)
     showNotification("Baseline adjustment mode activated", type = "message")
     showNotification("Click on the plot to define the baseline for the individual peak", type = "message")
   })
@@ -3416,7 +3422,147 @@ server <- function(input, output, session){
   })
   
   
+  ######4.7.6 Logic for Adjusting baseline across all peaks in selcetd plot######
+  #Modal to render plot to adjust baseline on
+  show_adjust_all_baselines_modal <- function() {
+    showModal(modalDialog(
+      title = "Adjust All Baselines",
+      plotlyOutput("adjust_baseline_plot"),
+      footer = tagList(
+        modalButton("Cancel"),
+        actionButton("confirm_adjust_all_baselines", "Confirm")
+      )
+    ))
+    plotbaseline_adjustment_mode(TRUE)
+  }
   
+  # Function to adjust all baselines in the plot
+  adjust_plot_baseline <- function(plot_baseline) {
+    
+    #Initialize variables and load data
+    selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
+    base_file_name <- sub("\\.mz5$", "", input$file_selector)
+    plotname <- sub(paste0("^", base_file_name, "_"), "", selected_plot_name)
+    plot_data <- plot_list_data_values$plot_list[[plotname]]
+    eie_df <- plot_data$eie_data
+    peaks_df <- plot_list_data_values$peaks_df
+    peak_area_df <- plot_list_data_values$peak_area_df
+    integration_data <- plot_data$integration_data
+    
+    #Loop through all peaks 
+    for (peak_index in 1:nrow(peaks_df)) {
+      
+      #Get boundaries of the individual peaks to integrate between 
+      left_boundary <- peaks_df[peak_index, paste0(plotname, ".start.seconds")]
+      right_boundary <- peaks_df[peak_index, paste0(plotname, ".end.seconds")]
+      
+      integrated_data <- eie_df[eie_df$mt.seconds >= left_boundary & eie_df$mt.seconds <= right_boundary, ]
+      intensity_column <- paste(plotname, "intensity", sep = " ")
+      time <- integrated_data$mt.seconds
+      intensity <- integrated_data[[intensity_column]]
+      
+      #Area function
+      area <- tryCatch({
+        AUC(time,
+            intensity,
+            method = "trapezoid",
+            from = min(time),
+            to = max(time),
+            absolutearea = FALSE,
+            na.rm = FALSE)
+      }, error = function(e) {
+        showNotification(paste("Error in AUC calculation:", e), type = "error")
+        return(NA)})
+      
+      #Check if area is NA
+      if (is.na(area)) {
+        showNotification("Error: Area calculation returned NA", type = "error")
+        next
+      }
+      
+      #Adjust baseline and update area
+      baseline_adjustment <- (right_boundary - left_boundary) * plot_baseline
+      area <- area - baseline_adjustment
+      
+      #Update peak dataframe with new area information 
+      # peaks_df[peak_index, paste0(plotname, ".start_intensity")] <- min(intensity)
+      # peaks_df[peak_index, paste0(plotname, ".end_intensity")] <- min(intensity)
+      peaks_df[peak_index, paste0(plotname, ".peak.area")] <- area
+      peak_area_df[peak_index, paste0(plotname)] <- area
+      
+      #Update integration data
+      temp_integration_data <- data.frame(
+        "peak.number" = peak_index,
+        "mt.seconds" = time,
+        "intensity" = intensity,
+        "baseline" = plot_baseline)
+      
+      integration_data <- as.data.frame(lapply(integration_data, function(x) if(is.factor(x)) as.character(x) else x))
+      if (peak_index %in% integration_data$peak.number) {
+        integration_data <- integration_data[integration_data$peak.number != peak_index, ]
+      }
+      integration_data <- rbind(integration_data, temp_integration_data)
+    }
+    
+    #Update metadata 
+    plot_list_data_values$plot_list[[plotname]]$integration_data <- integration_data
+    plot_list_data_values$peak_area_df <- peak_area_df
+    plot_list_data_values$peaks_df <- peaks_df
+    modified_peak_plots$names <- unique(c(modified_peak_plots$names, plotname))
+    save_plot_data(plotname)
+    
+    showNotification("All baselines adjusted. Areas and metadata updated.", type = "message")
+  }
+  
+  ######4.7.7: Applying baseline correction across all peaks in selected plot######
+  #Button for the "adjust_all_baselines" button
+  observeEvent(input$adjust_all_baselines, {
+    plotbaseline_adjustment_mode(TRUE)
+    baseline_adjustment_mode(FALSE) 
+    show_adjust_all_baselines_modal()
+    showNotification("Baseline adjustment mode for all peaks activated", type = "message")
+    showNotification("Click on the plot to define the baseline for all peaks", type = "message")
+  })
+  
+  #Function for rendering the selected plot in the modal
+  output$adjust_baseline_plot <- renderPlotly({
+    req(input$plot_table_rows_selected)
+    selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
+    plot <- plotly_data()[[selected_plot_name]]
+    if (is.null(plot)) {
+      plotly_empty()
+    } else {
+      plot %>%
+        layout(dragmode = "select")
+      event_register(plot, "plotly_click")}})
+  
+  #Observer for handling click data events on the plotly plot rendered in the modal to acquire the new baseline
+  observeEvent(event_data("plotly_click"), {
+    if (plotbaseline_adjustment_mode()) {
+      click_data <- event_data("plotly_click")
+      if (!is.null(click_data)) {
+        plot_baseline <- click_data$y
+        
+        #Update all baselines with the new value and apply the baseline fun ction
+        adjust_plot_baseline(plot_baseline)
+        plotbaseline_adjustment_mode(FALSE)
+        
+        #Performance notifications 
+        showNotification("New baseline set. All baselines adjusted.", type = "message")
+      } else {
+        showNotification("No valid click data received.", type = "error")
+        showNotification("Error: No click detected on the plot.", type = "error")}
+    } else {
+      showNotification("Baseline adjustment mode is inactive.", type = "message")}
+  })
+  
+  # Observer for the "confirm_adjust_all_baselines" button
+  observeEvent(input$confirm_adjust_all_baselines, {
+    removeModal()
+  })
+  
+  
+
   
 }#Closing bracket
   

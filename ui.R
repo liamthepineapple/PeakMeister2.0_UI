@@ -326,7 +326,7 @@ ui <- dashboardPage(
                        DTOutput("peak_info_table"),
                          ),
                        
-                       tabPanel("Dual Chromatogram View",
+                       tabPanel("Dual EIE View",
                                 tags$h4(style = "text-decoration: underline;", "Comparison Content"),
                                 plotlyOutput("combined_plot", height = "600px"),
                                 tags$h4(style = "text-decoration: underline;", "Select Plots to Compare"),

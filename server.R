@@ -3562,7 +3562,7 @@ server <- function(input, output, session){
   })
   
   
-  #####4.8 Server logic for displaying two plots.#####
+  #####4.8 Server logic for dual EIE viewing.#####
   #Populate plot tables of plots you wish you display
   output$plottable1 <- renderDataTable({
     data.frame(Plot = filtered_plot_names())

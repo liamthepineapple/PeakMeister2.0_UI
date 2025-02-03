@@ -3514,7 +3514,7 @@ server <- function(input, output, session){
     showNotification("All baselines adjusted. Areas and metadata updated.", type = "message")
   }
   
-  ######4.7.7: Applying baseline correction across all peaks in selected plot######
+  ######4.7.7 Applying baseline correction across all peaks in selected plot######
   #Button for the "adjust_all_baselines" button
   observeEvent(input$adjust_all_baselines, {
     plotbaseline_adjustment_mode(TRUE)
@@ -3562,6 +3562,49 @@ server <- function(input, output, session){
   })
   
   
+  #####4.8 Server logic for displaying two plots.#####
+  #Populate plot tables of plots you wish you display
+  output$plottable1 <- renderDataTable({
+    data.frame(Plot = filtered_plot_names())
+  }, selection = 'single')
+  
+  output$plottable2 <- renderDataTable({
+    data.frame(Plot = filtered_plot_names())
+  }, selection = 'single')
+
+  # Observe selected plots and render a combined subplot of these functions to zoom in on peaks
+  observeEvent({
+    input$plottable1_rows_selected
+    input$plottable2_rows_selected
+  }, {
+    req(input$plottable1_rows_selected, input$plottable2_rows_selected)
+    selected_plotname1 <- filtered_plot_names()[input$plottable1_rows_selected]
+    selected_plotname2 <- filtered_plot_names()[input$plottable2_rows_selected]
+    plot1 <- plotly_data()[[selected_plotname1]]
+    plot2 <- plotly_data()[[selected_plotname2]]
+
+    #Create title for plot
+    base_file_name <- sub("\\.mz5$", "", input$file_selector)
+    plotname1 <- sub(paste0("^", base_file_name, "_"), "", selected_plotname1)
+    plotname2 <- sub(paste0("^", base_file_name, "_"), "", selected_plotname2)
+    combined_title <- paste("EIE of", plotname1, "(top) and", plotname2, "(bottom)")
+    
+    #Combine plots into a subplot 
+    output$combined_plot <- renderPlotly({
+      if (is.null(plot1) || is.null(plot2)) {
+        plotly_empty()
+      } else {
+        subplot(plot1, plot2, nrows = 2, shareX = TRUE, titleX = TRUE, titleY = TRUE) %>%
+          layout(
+            title = combined_title,
+            xaxis = list(title = "X-axis"),
+            yaxis = list(title = "Y-axis"),
+            xaxis2 = list(title = "X-axis"),
+            yaxis2 = list(title = "Y-axis")
+          )
+      }
+    })
+  })
 
   
 }#Closing bracket

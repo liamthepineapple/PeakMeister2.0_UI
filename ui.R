@@ -295,17 +295,21 @@ ui <- dashboardPage(
                        #Select results folder to work out of 
                        selectInput("results_folder", "Select Results Folder:", choices = NULL),
                        #Select plots, display plots
-                       tags$h4(style = "text-decoration: underline;", "Loaded Plots"),DTOutput("plot_table"), 
+                       tags$h4(style = "text-decoration: underline;", "Loaded Plots"),
                        #Datatable for displaying modified plots
+                       DTOutput("plot_table"), 
                        tags$h4(style = "text-decoration: underline;", "Edited plots to be regenerated"),DTOutput("modified_peak_plots_table")),
-                #Display selected plot 
+                
                 column(8,
+                       tabsetPanel(
+                         tabPanel("Plotting",
+                       #Display selected plot 
                        plotlyOutput("selected_plot", height = "600px"),
                        #Line positions
                        textOutput("red_line_position"),
                        textOutput("blue_line_position"),
-                       #Data table for peak positions
-                       tags$h4(style = "text-decoration: underline;", "Peak Position Information"),DTOutput("peak_info_table"),
+                       #Action button for adjusting baseline (across all peaks)
+                       actionButton("adjust_all_baselines", "Adjust All Baselines"),
                        #Action button for deleting peaks
                        actionButton("delete_peak", "Delete Selected Peaks"),
                        #Action button for undoing peak deletion
@@ -316,8 +320,22 @@ ui <- dashboardPage(
                        actionButton("manual_integrate", "Manually Adjust Integration"),
                        #Action button for adjusting baseline (across individual peaks)
                        actionButton("adjust_indiv_baseline", "Adjust Individual Baseline"),
-                       #Action button for adjusting baseline (across all peaks)
-                       actionButton("adjust_all_baseline", "Adjust All Baselines"),
+                       
+                       #Data table for peak positions
+                       tags$h4(style = "text-decoration: underline;", "Peak Position Information"),
+                       DTOutput("peak_info_table"),
+                         ),
+                       
+                       tabPanel("Dual Chromatogram View",
+                                tags$h4(style = "text-decoration: underline;", "Comparison Content"),
+                                plotlyOutput("combined_plot", height = "600px"),
+                                tags$h4(style = "text-decoration: underline;", "Select Plots to Compare"),
+                                column(6,
+                                DTOutput("plottable1")),
+                                column(6,
+                                DTOutput("plottable2")),
+                    )
+                  )
                 )
               )
             )

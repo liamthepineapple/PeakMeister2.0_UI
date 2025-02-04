@@ -308,18 +308,27 @@ ui <- dashboardPage(
                        #Line positions
                        textOutput("red_line_position"),
                        textOutput("blue_line_position"),
-                       #Action button for adjusting baseline (across all peaks)
-                       actionButton("adjust_all_baselines", "Adjust All Baselines"),
+                       #HTML tags for setting button colour for aesthetics 
+                       tags$style(HTML("
+                        #adjust_all_baselines {background-color: #71A9F7; color: black;}
+                        #delete_peak {background-color: #2E86AB; color: black;}
+                        #undo {background-color: #243B4A; color: white;}
+                        #regenerateplots {background-color: #0E3B43; color: white;}
+                        #manual_integrate {background-color: #00A8E8; color: black;}
+                        #adjust_indiv_baseline {background-color: #28536B; color: white;}
+                        ")),
                        #Action button for deleting peaks
                        actionButton("delete_peak", "Delete Selected Peaks"),
                        #Action button for undoing peak deletion
                        actionButton("undo", "Undo Peak Deletion"),
-                       #Action button for regenerating plots
-                       actionButton("regenerateplots", "Regenerate Changed Plots"),
                        #Action button for manual integration 
                        actionButton("manual_integrate", "Manually Adjust Integration"),
                        #Action button for adjusting baseline (across individual peaks)
                        actionButton("adjust_indiv_baseline", "Adjust Individual Baseline"),
+                       #Action button for adjusting baseline (across all peaks)
+                       actionButton("adjust_all_baselines", "Adjust All Baselines"),
+                       #Action button for regenerating plots
+                       actionButton("regenerateplots", "Regenerate Changed Plots"),
                        
                        #Data table for peak positions
                        tags$h4(style = "text-decoration: underline;", "Peak Position Information"),
@@ -327,7 +336,7 @@ ui <- dashboardPage(
                          ),
                        
                        tabPanel("Dual EIE View",
-                                tags$h4(style = "text-decoration: underline;", "Comparison Content"),
+                                tags$h4(style = "text-decoration: underline;", "Combined Electropherograms"),
                                 plotlyOutput("combined_plot", height = "600px"),
                                 tags$h4(style = "text-decoration: underline;", "Select Plots to Compare"),
                                 column(6,

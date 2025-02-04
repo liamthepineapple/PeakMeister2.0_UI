@@ -258,6 +258,7 @@ ui <- dashboardPage(
           id = "Setup",
           fluidRow(
             column(6,
+                   tags$h4(style = "text-decoration: underline;", "File Uploads for Initializing Data Preprocessing"),
                    #File upload button
                    fileInput("mz5Files", "Upload .mz5 Files", accept = c(".mz5"), multiple = TRUE),
                   #checkbox to enable autoinitialization or not 
@@ -266,6 +267,14 @@ ui <- dashboardPage(
                    DT::dataTableOutput("fileTable"),
                    #Clear uploaded files
                   actionButton("clearFiles", "Clear Files"),
+            ),
+            column(1,),
+            column(5,
+                   tags$h4(style = "text-decoration: underline;", "Generate Pseudo .mz5 Files for Use in Processing Generated Datafiles"),
+                   fileInput("excelFile", "Upload Excel File of File Names (.xlsx)", accept = c(".xlsx")),
+                   DTOutput("mz5fileTable"),
+                   actionButton("addRow", "Add Empty Row"),
+                   actionButton("generateFiles", "Generate Pseudo .mz5 Files"),
             )
           )
         ),
@@ -279,7 +288,8 @@ ui <- dashboardPage(
                       border-style:double;
                       border-width:10px;
                       border-radius:0%;
-                      font-size:40px; width: 100%;"))),
+                      font-size:40px; width: 100%;")),
+              ),
       #Create progress bar for monitoring computation 
        uiOutput("progressBar")
       ),

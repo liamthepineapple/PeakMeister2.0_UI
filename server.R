@@ -436,9 +436,12 @@ server <- function(input, output, session){
   
   ####3. Engine tab####
   #####3.1 mz5 file upload#####
-  
+  ######3.1.1 Upload real .mz5 files######
   # Initialize reactive value to store uploaded files
   uploadedmz5 <- reactiveVal(data.frame(FileName = character(), FilePath = character(), stringsAsFactors = FALSE))
+  
+  #Reactive value to store pseudo .mz5 files if they are being generated
+  pseudomz5names <- reactiveVal(data.frame(FileName = "", stringsAsFactors = FALSE))
 
   observeEvent(input$mz5Files, {
     req(input$mz5Files)  
@@ -469,11 +472,64 @@ server <- function(input, output, session){
   observeEvent(input$clearFiles, {
     # Clear the uploaded files
     uploadedmz5(data.frame(FileName = character(), FilePath = character(), stringsAsFactors = FALSE))
+    pseudomz5names(data.frame(FileName = "", stringsAsFactors = FALSE))
   })
+  
 
-
-  #Click initialize run automatically if checkbox is checked
-
+  ######3.1.2 Upload file names and generate pseudo .mz5 files######
+  #Render the editable data table
+  output$mz5fileTable <- DT::renderDataTable({
+    datatable(pseudomz5names(), editable = TRUE, options = list(pageLength = 5))
+  })
+  
+  #Observe changes in the table and update the reactive variable with the input information
+  observeEvent(input$mz5fileTable_cell_edit, {
+    info <- input$mz5fileTable_cell_edit
+    newFileNames <- pseudomz5names()
+    newFileNames[info$row, info$col] <- info$value
+    pseudomz5names(newFileNames)})
+  
+  #Update the reactive value with filenames from the uploaded Excel file
+  observeEvent(input$excelFile, {
+    req(input$excelFile)
+    excel_data <- read_excel(input$excelFile$datapath)
+    newFiles <- data.frame(
+      FileName = excel_data$FileName,
+      stringsAsFactors = FALSE)
+    pseudomz5names(newFiles)
+  })
+  
+  # Generate pseudo .mz5 files based on filenames in the data table. 
+  #These are empty .mz5 files soley used for accessing the metadata specific to each file without having to upload these large files every single time to process the data.
+  observeEvent(input$generateFiles, {
+    req(pseudomz5names())
+    
+    # Generate empty .mz5 files
+    newFiles <- data.frame(
+      FileName = paste0(pseudomz5names()$FileName, ".mz5"),
+      FilePath = sapply(pseudomz5names()$FileName, function(name) {
+        file_path <- tempfile(fileext = ".mz5")
+        file.create(file_path)
+      }),stringsAsFactors = FALSE)
+    
+    #Store empty .mz5 files in the reactive variable for use elsewhere in the app.
+    uploadedmz5(newFiles)
+    
+    # Render the data table automatically when files are uploaded
+    output$fileTable <- DT::renderDataTable({
+      DT::datatable(uploadedmz5(), options = list(pageLength = 5))
+    })
+    showNotification("Pseudo .mz5 files generated", type = "message")
+  })
+  
+  # Add empty rows to the table
+  observeEvent(input$addRow, {
+    currentData <- pseudomz5names()
+    newRow <- data.frame(FileName = "", stringsAsFactors = FALSE)
+    updatedData <- rbind(currentData, newRow)
+    pseudomz5names(updatedData)
+  })
+  
   
   #####3.2 Initialze Run Button - Main Content######
   #Initialize run button - main engine content 
@@ -3574,6 +3630,7 @@ server <- function(input, output, session){
 
   # Observe selected plots and render a combined subplot of these functions to zoom in on peaks
   observeEvent({
+    #Wait for input on both plottable1 and plottable2 before executing the code. 
     input$plottable1_rows_selected
     input$plottable2_rows_selected
   }, {
@@ -3603,7 +3660,7 @@ server <- function(input, output, session){
             yaxis2 = list(title = "Y-axis")
           )
       }
-    })
+    }) 
   })
 
   

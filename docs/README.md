@@ -23,6 +23,7 @@ The key differentiating feature of PeakMeister from other currently available so
 3. Plots of each extracted ion electropherogram which can be used to check for proper peak annotation and integration
 4. A table containing the migration times of peaks or expected peak positions
 5. A table containing the peak areas
+6. The raw metadata used by the program which can be used further in data analysis steps
 
 Migration time indexes are determined with the following equations
 
@@ -65,7 +66,7 @@ PeakMeister2.0- UI includes the use of a graphical user interface (GUI) run by s
 
 4.	This app is designed in a way where you never need to go into the complex code. Open the file titled app.R. This is how you launch the app.
 
-5.	Select all on this page and hit “control-enter” to run all selected lines of code. Alternatively, you can click the “Run app” button in the top right corner of your script. This will initialize the app and install the required packages
+5.	Select all on this page and hit “control-enter” to run all selected lines of code. Alternatively, you can click the “Run app” button in the top right corner of your script. This will initialize the app and install the required packages.
 
 6.	Occasionally, the packages “xcms” and “ggpubr” will not install correctly. The user may have to install these manually. To install these packages: 
 
@@ -134,6 +135,7 @@ For this sheet, I will focus on the sections not discussed above. Features used 
 Upon Launching the app, you're taken to a homepage with 6 tabs displayed on the left. The tabs are as following:
 
 ##### 1. *About*
+***
 
 This tabs contains information about the app including the detailed README file for how the app works. Tabs are dropdown menus that display information once clicked. The following tabs are present
 
@@ -143,6 +145,7 @@ This tabs contains information about the app including the detailed README file 
 4. License -> Includes MIT license
 
 ##### 2. *User Supplied Parameters*
+***
 
 User supplied parameters is the location where an individual will specify the paramaters used in the PeakMeister computations. Users can upload excel files with the required information (supplied in the Sample Files folder) which will automatically populate the data table with the contained information. If a table is not available, users can input their data using the app interface in addition to saving this data to a prelabeled parameters datafile. Uploaded data can also be edited direcly in the table by double clicking column. The tabs are as following
 
@@ -167,8 +170,9 @@ Tab for adding basic project metadata. This includes project name, a description
 Only required for when users select "Yes" in the Manual.Indexes option in the Parameters tab. Will auto-populate when users upload excel file titled User Supplied Migration Indexes. Provides option for users to supply their own migration time indexes. 
 
 ##### 3. *Engine*
+***
 
-This tab is where the major computation is performed. The metaphorical engine of our metaphorical car. This requires .mz5 files to run.Users will click on "Browse" to select a .mz5 file to upload. This file can be stored anywhere on your computer and the app will upload it. When the file is uploaded, shiny stores it until the app is closed. Uploaded files will be displayed in a rendered data table so the user can check the files that they have selected. Once files have been uploaded, users can click the big red button labeled "Initialize Run" which will start the button. This button will not do anything until the uploaded .mz5 files are uploaded and additinoally requires the Mass List and Paramaters to be uploaded. The computation will then be performed on your samples. The run will give the following files/folder:
+This tab is where the major computation is performed. The metaphorical engine of our metaphorical car. This requires .mz5 files to run.Users will click on "Browse" to select a .mz5 file to upload. This file can be stored anywhere on your computer and the app will upload it. When the file is uploaded, shiny stores it until the app is closed. Uploaded files will be displayed in a rendered data table so the user can check the files that they have selected. Once files have been uploaded, users can click the big button labeled "Initialize Run" which will start the button. This button will not do anything until the uploaded .mz5 files are uploaded and additinoally requires the Mass List and Paramaters to be uploaded. An option exists for a user to check a checkbox that will automatically start the run after the very last data file has been uploaded. This allows the user to upload a large amount of files and walk away from their computer knowing the app will automatically start once the last file is uploaded. The computation will then be performed on your samples. The run will give the following files/folder:
 
 1. Mass List and Parameters (.xlsx)
 
@@ -196,29 +200,70 @@ A Rdata file containing all generated interactive plotly plots. ALlows for visua
 
 7. Data (folder)
 
-Not currently functional. Will be used to save computed Data/metadata for the run
+Stores the raw metadata for each datafile. This includes all information required for generating the plots and calculating peak areas.
+
+
+An option also exists for generating pseudo .mz5 files. This option is intended for the user to generate empty temporary .mz5 files with the same name as the real .mz5 files that have already been run through the app. The app requires the name of the .mz5 files to access the stored data associated with each plot. This avoids the user having to upload the real .mz5 files which are often >1GB in size and can take considerable time to upload when working with a large quantity of files. Additionally, the user can place their file names into an excel file with a column titled "FileName" and PeakMeister will generate these pseudo .mz5 files from the names provided with the press of a button. Note, these generated files are empty and must be cleared before the user processes and real files on the app.
 
 ##### 4. *Visualization*
+***
 
-This tab is where users can view their results in an interactive plot format. Requires users to have uploaded their .mz5 files in the "Engine" tab. When this computation it run, it will automatically store the plots into the apps memory. These plots will remain until the app is closed. However, each run generates a .RData file called "plotly_objects" that store the information required for the plots. Users can click the "Browse" button under the "Uploaded .Rdata file" section whcih will allow users to upload the plots to the app. 
+This tab is where users can view their results in an interactive plot format. Requires users to have uploaded their .mz5 files in the "Engine" tab. When this computation it run, it will automatically store the plots into the apps memory. These plots will remain until the app is closed. However, each run generates a .RData file called "plotly_objects" that store the information required for the plots. Users can click the "Browse" button under the "Uploaded .Rdata file" section which will allow users to upload the plots to the app. 
 
-.mz5 files will be shown under the "Select File:" dropdown menu. This allows users to switch between different files. Upon selecting a file, a data table will be displayed which will have a list of plots generated  from the specific selected file. Users can click a plot in the table which will cause it to display on the screen with its associated peak information. Users can select multiple peaks in this table to delete by clicking the rows on the table and selecting "Delete Selected Peaks." This will change the metadata associated with the plot. Deleted peaks are replaced with the label "NPD" or "No peak detected." If the user accidentally deletes the wrong peak, a button exists for undoing this deletion, which remembers the original data before "Delete Selected Peaks" is clicked.
+.mz5 files will be shown under the "Select File:" dropdown menu. This allows users to switch between different files and each files associated metadata. Upon selecting a file, a data table will be displayed which will have a list of plots generated  from the specific selected file. Users can click a plot in the table which will cause it to display on the screen with its associated peak information.
 
-The Red and Blue lines displayed can be dragged across the plot and will be used to highlight area to re-integrate a peak (Not implemented yet)
+The user can also specify the folder they are working out of in the "Select Results Folder" dropdown menu. This allows the user to work across multiple runs of data. A results folder **must** be specified in order to access the correct data.
 
+There are two subtabs to display the plots in which are titled "Plotting" or "Dual EIE View." The default is the "Plotting" tab.
+
+##### *Plotting tab*
+
+This is the default tab for displaying the plots. The user selects a plot from the "Loaded Plots" table which then causes the selected plot to render. Additionally, the data associated with all the peaks will display underneath the plot with information on the peak number, the apex of the peak in seconds, and the maximum intensity. A number of buttons are available for editing the plots which are described below:
+
+1. *Delete Selected Peaks*
+
+This button is for deleting peaks such as any instances where PeakMeister has misannoatated a peak. Users can select indivdual peaks or multiple peaks at once by selecting the corresponding row in the displayed table of the plot data. Peaks are then deleted by clicking "Delete Selected Peaks" after row selection. This will change the metadata associated with the plot. Deleted peaks are replaced with the label "NPD" which corresponds to "No peak detected." This does **not** directly update the stored peak area information, but it stores the metadata information with the deleted peaks for use in regenerating the peak area excel file at a later step. Upon deleting a peak, the peak name will be marked as "edited" and appear in the table of edited plots to be regenerated. 
+
+2. *Undo Peak Deletion*
+
+This button is for undoing peak deleting **PRIOR** to regenerating the plots. This is used in case the user accidentally deletes the wrong. It will return the metadata to whatever it was prior to the last peak deletion event. Note: this can only undo the previous peak deletion and this will reset if the user switches files.  
+
+3. *Manually Adjust Integration* 
+
+This button is for adjusting the integration of peaks. Occasionally, PeakMeister will either integrate the wrong peak or perform a poor integration of the peak area. The user can specify the left and right boundaries to integrate between by using the red and blue lines that are rendered with each plot. Each of these lines can be dragged and indicates a value on the x axis to integrate between.The red line indicates the left boundary and the blue line indicates the right boundary. These line positions will be saved as the new start and end time points for the peak being integrated. The app then looks into the electropherogram data and integrates the data found between these two plots. The peak apex can be redefined in this step as the program simply looks for the highest point in between these two boundaries and chooses that as the peak apex. The peak being integrated can either be selected from the Peak Position Information table displayed below the plot or the user can enter the peak number into a popup that appears if the user has not selected anything in the table. Only one peak integration can be adjusted at a time, however, the peak integration can be done as many times as a user wants for a plot before clicking "regenerate changed plots." Additionally, users could adjust integration on as many peaks as they wanted for as many plots as they wanted as long as the file isn't changed. Once "Manually Adjust Integration" is clicked, the program will update the associated metadata and saved Peak Area excel file with the new data.     
+
+4. *Adjust Individual Baseline*
+
+This button is for adjusting baselines on a individual peak-by-peak basis. Once clicked, baseline adjustment mode is activated which means that the plot can now be clicked which will record a "x" and "y" position. The "click" will define the y value of the baseline to be used for the peak. The same peak selection logic used for manually adjusting the integration is applied here as well. The peak where you are adjusting the baseline for can either be indicated by selecting it in the datatable below the plot or a popup will appear where the user can manually enter the peak number being adjusted. This function will then reintegrate the peak with the new baseline and update all associated metadata and peak area information. 
+
+5. *Adjust All Baselines*
+
+This button is similar in function to the "adjust individual baseline" button, only this will adjust the baseline on **ALL** peaks. The same logic from the individual baseline adjustment function is applied for choosing the new baseline. This will also reintegrate the associated metadata and update the medata date and peak area excel file.  
+
+6. *Regenerate Changed Plots*
+
+All modifications done to plots mark the plots as "modified" which will display in a table titled "Edited plots to be regenerated." The "regenerate changed plots" button essentially remakes the plots with the new edited data. The default is just updating the plotly plots but if a user has the "Mass List and Parameters" excel sheet upload onto the app, it will also update the saved .png plots in the "plots" subfolder of each results folder. The stored plotly objects are compressed into a smaller file size which takes a few more seconds but decreases file size by an order of magnitude in cases with a large number of plots. This process does take time so it is advised that plots are regenerated after all edits for a specific data file have been performed. 
+
+##### *Dual EIE View tab*
+
+This tab allows the user to display two electropherograms for use in identifying comigrating ions. Upon selecting this tab, the user will see two tables appear. These tables indicate to the program which plots you would like to compare. The table on the left will display the plot on top while the table on the right will display the bottom plot. Users will select the plots they wish to display by selecting the plot from the table. This will render a combined plot which can be zoomed into. Note: this can only be used to compare two plots from the **same** data file.
 
 
 ##### 5. *Quality Control*
+***
 
 Currently inactive tab
 
 ##### 6. *Reporting*
+***
 
 Currently inactive tab
 
 ### Copyright
+***
 
 PeakMeister is licensed under the [MIT](https://choosealicense.com/licenses/mit/) license
 
 ### References
+***
 

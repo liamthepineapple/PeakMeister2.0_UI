@@ -2723,6 +2723,14 @@ server <- function(input, output, session){
     run_metadata$peak_area_df <- previous_metadata$peak_area_df
     run_metadata$mi_df <- previous_metadata$mi_df
 
+    # Store metadata in a separate reactive structure to allow users to access/undo peak deletions
+    plot_list_data_values$comment_df <- run_metadata$comment_df 
+    plot_list_data_values$plot_list <- run_metadata$plot_list
+    plot_list_data_values$peaks_df <- run_metadata$peaks_df
+    plot_list_data_values$peak_mt_df <- run_metadata$peak_mt_df
+    plot_list_data_values$peak_area_df <- run_metadata$peak_area_df
+    plot_list_data_values$mi_df <- run_metadata$mi_df
+    
     # Extract objects from run_metadata
     plot_list <- run_metadata$plot_list
     comment_df <- run_metadata$comment_df

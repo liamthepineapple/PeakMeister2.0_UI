@@ -3670,8 +3670,132 @@ server <- function(input, output, session){
       }
     }) 
   })
-
   
+  
+####5. Downstream Processing ####    
+  #####5.1 Initializing Environment for loading peak area and migration time data#####
+  # Define the function to load files
+  grab_metabolite_files <- function(results_folder) {
+    peak_areas_path <- file.path(results_folder, "Metabolite Peak Areas.csv")
+    migration_times_path <- file.path(results_folder, "Metabolite Migration Times.csv")
+    
+    peak_areas <- if (file.exists(peak_areas_path)) {
+      read.csv(peak_areas_path, stringsAsFactors = FALSE, check.names = FALSE)} else {
+      warning("File not found: ", peak_areas_path)
+      NULL}
+    
+    migration_times <- if (file.exists(migration_times_path)) {
+      read.csv(migration_times_path, stringsAsFactors = FALSE, check.names = FALSE)} else {
+      warning("File not found: ", migration_times_path)
+      NULL}
+    
+    View(migration_times)
+  
+    list(peak_areas = peak_areas, migration_times = migration_times)
+  }
+  
+  # Define reactive variables for the dataframes
+  peak_areas_data <- reactiveVal(NULL)
+  migration_times_data <- reactiveVal(NULL)
+  
+  # Observer for the action button
+  observeEvent(input$load_migration_area, {
+    req(input$results_folder)
+    files <- grab_metabolite_files(input$results_folder)
+    peak_areas_data(files$peak_areas)
+    migration_times_data(files$migration_times)
+  })
+  
+  # Render tables for the metabolite data
+  output$peak_areas_table <- DT::renderDataTable({
+    req(peak_areas_data())
+    peak_areas_data()
+  })
+  
+  output$migration_times_table <- DT::renderDataTable({
+    req(migration_times_data())
+    migration_times_data()
+  })
+  
+  #Set results folder to work out of
+  main_folder <- reactive({
+      req(input$results_folder2)
+      input$results_folder2
+    })
+  
+  #Observe functions for selecting files and results folders to work with
+  observe({
+    updateSelectInput(session, "results_folder2", choices = results_folders_reactive())})
+  observe({
+    updateSelectInput(session, "file_selector2", choices = uploadedmz5()$FileName)})
+  
+  
+  #####5.2 Plot for m/z vs migration time #####
+  # Function to extract m/z and names from the name vector
+  extract_mass <- function(name_vec) {
+    mz <- as.numeric(sub("_.*", "", name_vec))
+    names <- sub("^[^_]*_", "", name_vec)
+    data.frame(mz = mz, name = names)
+  }
+  
+  # Reactive expression to create a data frame for plotting
+  mzMT_data <- reactive({
+    
+    #Initialize variables 
+    name_vec <- c(refMassListData()$name, massData()$name)
+    req(migration_times_data(), name_vec, input$peak_number)
+    mz_df <- extract_mass(name_vec)
+    migration_times <- migration_times_data()
+    base_file_name <- sub("\\.mz5$", "", input$file_selector2)
+    
+    #Filter data
+    start_row <- which(migration_times$file.name == base_file_name)
+    next_file_row <- which(migration_times$file.name != "" & migration_times$file.name != base_file_name & seq_along(migration_times$file.name) > start_row)[1]
+    end_row <- ifelse(is.na(next_file_row), nrow(migration_times), next_file_row - 1)
+    
+    #Filter the data for the selected base file name block
+    filtered_migration_time <- migration_times[start_row:end_row, ]
+    migration_times_filtered <- filtered_migration_time[filtered_migration_time$peak.number == input$peak_number, ]
+    migration_times_filtered <- migration_times_filtered[, !colnames(migration_times_filtered) %in% c("file.name", "peak.number")]
+    
+    ## Extract m/z values from the column names in migration_times_filtered and match them
+    mz_values <- as.numeric(sub("^([0-9.]+)_.*", "\\1", colnames(migration_times_filtered)))
+    matched_columns <- colnames(migration_times_filtered)[match(mz_df$mz, mz_values)]
+    
+    #Extract names from metadata to colour code metabolites and internal standards
+    ref_names <- sub("^[0-9.]+_", "", refMassListData()$name)
+    
+    #Create a data frame for plotting
+    plot_df <- data.frame(
+      mz = mz_df$mz,
+      migration_time = unlist(migration_times_filtered[, matched_columns]),
+      name = mz_df$name,
+      Type = ifelse(mz_df$name %in% ref_names, "Internal Standard", "Metabolite")
+    )
+  })
+  
+  #Make plotly plot of m/z vs. migration time. 
+  output$mz_vs_migration_plot <- renderPlotly({
+    plot_df <- mzMT_data()
+    
+    #Make the plot
+    p <- ggplot(plot_df, aes(x = migration_time, y = mz, text = name, fill = Type)) +
+      geom_point(shape = 21, size = 3, alpha = 0.7, color = "black") + 
+      scale_fill_manual(values = c("Metabolite" = "green", "Internal Standard" = "darkorange")) +
+      labs(title = "m/z versus Migration Time (min) for all analytes", x = "Migration Time (min)", y = "m/z") +
+      scale_x_continuous(limits = c(0, 40), breaks = seq(0, 50, by = 2)) +
+      theme_classic() +  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5))
+    
+    ggplotly(p, tooltip = "text") %>% layout(legend = list(orientation = "h"))
+  })
+  
+  # Render the peak number selector
+  output$peak_number_selector <- renderUI({
+    num_peaks <- parametersData()$number.of.injections
+    selectInput("peak_number", "Select Peak Number:", choices = 1:num_peaks)
+  })
+  
+
 }#Closing bracket
   
 

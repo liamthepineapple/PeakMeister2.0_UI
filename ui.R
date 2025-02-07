@@ -40,8 +40,8 @@ ui <- dashboardPage(
         tabName = "processing",
         icon = icon("area-chart")),
       #Manual adjustment tab for processing data
-      menuItem("Quality Control",
-        tabName = "processing",
+      menuItem("Downstream Processing",
+        tabName = "datamanipulation",
         icon = icon("searchengin")),
       #Reporting tab for exporting results/outputting true detections
       menuItem("Reporting",
@@ -270,7 +270,7 @@ ui <- dashboardPage(
             ),
             column(1,),
             column(5,
-                   tags$h4(style = "text-decoration: underline;", "Generate Pseudo .mz5 Files for Use in Processing Generated Datafiles"),
+                   tags$h4(style = "text-decoration: underline;", "Generate Pseudo .mz5 Files to Access Stored Datafiles"),
                    fileInput("excelFile", "Upload Excel File of File Names (.xlsx)", accept = c(".xlsx")),
                    DTOutput("mz5fileTable"),
                    actionButton("addRow", "Add Empty Row"),
@@ -357,8 +357,32 @@ ui <- dashboardPage(
                   )
                 )
               )
+            ),
+      
+      #### 6. Downstream processing tab####
+      tabItem(
+        tabName = "datamanipulation",
+        
+          fluidRow(
+            column(3,
+                   #Select results folder to work out of 
+                   selectInput("results_folder2", "Select Results Folder:", choices = NULL),
+                   #Button for selecting files -> will subset/filter data to choose plots
+                   selectInput("file_selector2", "Select File:", choices = NULL),
+                   actionButton("load_migration_area", "Load Migration and Peak Area Data"),
+                   uiOutput("peak_number_selector")
+              
+            ),
+            column(9,
+                   tabsetPanel(
+                   tabPanel("m/z vs Migration Time", 
+                            plotlyOutput("mz_vs_migration_plot", height = "600px"))
+                   )
             )
-          ),
+          )
+        )
+      
+      ),
     #Display logo at bottom right of page 
     tags$div(
       style = "position: absolute; bottom: 10px; right: 10px;",

@@ -370,17 +370,29 @@ ui <- dashboardPage(
                    #Button for selecting files -> will subset/filter data to choose plots
                    selectInput("file_selector2", "Select File:", choices = NULL),
                    actionButton("load_migration_area", "Load Migration and Peak Area Data"),
-                   uiOutput("peak_number_selector")
+                   uiOutput("peak_number_selector"),
+                   fileInput("metadataFile", "Upload .csv File of Peak Position Metadata (.csv)", accept = c(".csv")),
+                   actionButton("connect_metadata","Connect Metadata to Results"),
               
             ),
             column(9,
                    tabsetPanel(
                    tabPanel("m/z vs Migration Time", 
-                            plotlyOutput("mz_vs_migration_plot", height = "600px"))
+                            plotlyOutput("mz_vs_migration_plot", height = "600px")),
+                   tabPanel("Control Charts",
+                            )
                    )
             )
           )
+        ),
+      tabItem(
+        tabName = "reporting",
+        fluidRow(
+          column(3,
+                 actionButton("generate_matrix","Generate Data Matrix for Metaboloanalyst")
+          )
         )
+      )
       
       ),
     #Display logo at bottom right of page 

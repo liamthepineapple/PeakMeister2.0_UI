@@ -373,6 +373,7 @@ ui <- dashboardPage(
                    uiOutput("peak_number_selector"),
                    fileInput("metadataFile", "Upload .csv File of Peak Position Metadata (.csv)", accept = c(".csv")),
                    actionButton("connect_metadata","Connect Metadata to Results"),
+                   actionButton("normalize", "Normalize")
               
             ),
             column(9,

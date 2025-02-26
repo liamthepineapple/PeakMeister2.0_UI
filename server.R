@@ -3688,8 +3688,6 @@ server <- function(input, output, session){
       read.csv(migration_times_path, stringsAsFactors = FALSE, check.names = FALSE)} else {
       warning("File not found: ", migration_times_path)
       NULL}
-    
-    View(migration_times)
   
     list(peak_areas = peak_areas, migration_times = migration_times)
   }
@@ -3848,6 +3846,61 @@ server <- function(input, output, session){
     showNotification("Metadata succesffuly connected to peak areas", type = "message")
   })
   
+  #####5.4 Normalize to Creatine, F-Phe, or Cl-Tyr#####
+  
+  observeEvent(input$normalize, {
+    showModal(modalDialog(
+      title = "Normalization Options",
+      selectInput("normalize_by", "Normalize By", choices = c("114.0667_Creatinine", "184.0774_F-Phe", "216.0427_Cl-Tyr")),
+      footer = tagList(
+        modalButton("Cancel"),
+        actionButton("confirm_normalize", "Normalize")
+      ),
+      easyClose = TRUE
+    ))
+  })
+  
+  #Event handler for normalizing the data.
+  observeEvent(input$confirm_normalize, {
+    removeModal()
+    
+    #Load data and initialize the environment youre working in.
+    name_vec <- c(refMassListData()$name, massData()$name)
+    results_folder2 <- main_folder()
+    files <- grab_metabolite_files(results_folder2)
+    area <- files$peak_areas
+    
+    #Function for normalizing peak areas
+    normalize_peak_areas <- function(data, normalize_by) {
+      if (!(normalize_by %in% name_vec)) {
+        showNotification("Selected normalization metabolite not found in data columns.", type = "error")
+        return(data)
+      }
+      
+      # Convert non-numeric values to NA and ensure all columns are now numeric
+      data <- data %>%
+        mutate(across(all_of(name_vec), ~ suppressWarnings(ifelse(grepl("^[0-9.]+$", .), as.numeric(.), NA_real_))))
+      if (all(is.na(data[[normalize_by]]))) {
+        showNotification("Normalization column does not contain any numeric values.", type = "error")
+        return(data)
+      }
+      
+      # Normalize each row by the corresponding area for the metabolite you are using to normalize.
+      data <- data %>%
+        rowwise() %>%
+        mutate(across(all_of(name_vec), ~ ifelse(!is.na(.data[[normalize_by]]) & !is.na(.), . / .data[[normalize_by]], .)))
+      return(data)
+    }
+    
+    #Apply function to data
+    normalized_data <- normalize_peak_areas(area, input$normalize_by)
+    
+    # Write the normalized data to a new CSV file
+    write.csv(normalized_data, file.path(results_folder2, "Normalized Metabolite Peak Areas.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+    showNotification("Data successfully normalized", type = "message")
+  })
+  
+
   
 }#Closing bracket
   

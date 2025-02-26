@@ -3675,9 +3675,9 @@ server <- function(input, output, session){
 ####5. Downstream Processing ####    
   #####5.1 Initializing Environment for loading peak area and migration time data#####
   # Define the function to load files
-  grab_metabolite_files <- function(results_folder) {
-    peak_areas_path <- file.path(results_folder, "Metabolite Peak Areas.csv")
-    migration_times_path <- file.path(results_folder, "Metabolite Migration Times.csv")
+  grab_metabolite_files <- function(results_folder2) {
+    peak_areas_path <- file.path(results_folder2, "Metabolite Peak Areas.csv")
+    migration_times_path <- file.path(results_folder2, "Metabolite Migration Times.csv")
     
     peak_areas <- if (file.exists(peak_areas_path)) {
       read.csv(peak_areas_path, stringsAsFactors = FALSE, check.names = FALSE)} else {
@@ -3700,8 +3700,8 @@ server <- function(input, output, session){
   
   # Observer for the action button
   observeEvent(input$load_migration_area, {
-    req(input$results_folder)
-    files <- grab_metabolite_files(input$results_folder)
+    req(input$results_folder2)
+    files <- grab_metabolite_files(input$results_folder2)
     peak_areas_data(files$peak_areas)
     migration_times_data(files$migration_times)
   })
@@ -3786,7 +3786,7 @@ server <- function(input, output, session){
       scale_x_continuous(limits = c(0, 40), breaks = seq(0, 50, by = 2)) +
       theme_classic() +  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5))
     
-    ggplotly(p, tooltip = "text") %>% layout(legend = list(orientation = "h"))
+    ggplotly(p, tooltip = "text") %>% layout(legend = list(orientation = "h", x = 0.4, y = -0.2))
   })
   
   # Render the peak number selector
@@ -3795,7 +3795,60 @@ server <- function(input, output, session){
     selectInput("peak_number", "Select Peak Number:", choices = 1:num_peaks)
   })
   
+  #####5.3 Connect Peak Position with Metadata##### 
 
+  #Observe action button for connecting metadata
+  observeEvent(input$connect_metadata, {
+    results_path <- main_folder()
+    data_folder <- file.path(results_path, "Data")
+    
+    #Look for path to metadata file
+    metadata_path <- file.path(data_folder, "metadata.csv")
+    
+    if (!file.exists(metadata_path)) {
+      showNotification("metadata.csv not found in Data subfolder. Are you working out of the right results folder?", type = "warning")
+      return(NULL)
+    }
+    
+    #Load data
+    metadata <- read.csv(metadata_path, check.names = FALSE)
+    files <- grab_metabolite_files(results_path)
+    area <- files$peak_areas
+    
+    #identify peak columns in metadata file. Designed to by dynamic with changing peak numbers
+    peak_columns <- grep("^[0-9]+$", names(metadata), value = TRUE)
+    
+    #Remove empty columns (just in case) and transform data to long format
+    metadata <- metadata[, colSums(is.na(metadata)) < nrow(metadata)]
+    metadata_long <- metadata %>%
+      pivot_longer(cols = all_of(peak_columns), names_to = "peak.number", values_to = "PBM Sample ID") %>%
+      select(`Data file`, peak.number, `PBM Sample ID`)
+    
+    #Filter metadata file to connect filenames in actual results with the samples IDs for each file & peak
+    filter_data_by_file_name <- function(data, file_name) {
+      start_row <- which(data$file.name == file_name)
+      next_file_row <- which(data$file.name != "" & data$file.name != file_name & seq_along(data$file.name) > start_row)[1]
+      end_row <- ifelse(is.na(next_file_row), nrow(data), next_file_row - 1)
+      data[start_row:end_row, ]}
+    
+    merged_data <- do.call(rbind, lapply(unique(area$file.name[area$file.name != ""]), function(file_name) {
+      filtered_area <- filter_data_by_file_name(area, file_name)
+      filtered_metadata <- metadata_long[metadata_long$`Data file` == file_name, ]
+      merged <- merge(filtered_area, filtered_metadata, by.x = "peak.number", by.y = "peak.number", all.x = TRUE)
+      merged <- merged %>% select(-`Data file`) %>% relocate(`PBM Sample ID`, .after = file.name)
+      return(merged)
+    }))
+    
+    #Trim any leading or trailing whitespace (found in some of the metadata files for unknown resason)
+    merged_data$`PBM Sample ID` <- trimws(merged_data$`PBM Sample ID`, whitespace = "[\\h\\v]")
+  
+    #Add merged data to reactive data file and save it to a .CSV
+    peak_areas_data(merged_data)
+    write.csv(merged_data, file.path(results_path, "merged_peak_area.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+    showNotification("Metadata succesffuly connected to peak areas", type = "message")
+  })
+  
+  
 }#Closing bracket
   
 

@@ -3895,12 +3895,45 @@ server <- function(input, output, session){
     #Apply function to data
     normalized_data <- normalize_peak_areas(area, input$normalize_by)
     
-    # Write the normalized data to a new CSV file
+    #Save normalized data to a new CSV file so original datafile is preserved
     write.csv(normalized_data, file.path(results_folder2, "Normalized Metabolite Peak Areas.csv"), row.names = FALSE, fileEncoding = "UTF-8")
     showNotification("Data successfully normalized", type = "message")
   })
   
-
+  #####5.5 Replacing missing values in data#####
+  observeEvent(input$missing_data, {
+    
+    #Intialize environment, define variables
+    results_folder2 <- main_folder()
+    files <- grab_metabolite_files(input$results_folder2)
+    data <- files$peak_areas
+    name_vec <- c(refMassListData()$name, massData()$name)
+    
+    #Convert non-numeric values to NA
+    data <- data %>%
+      mutate(across(all_of(name_vec), ~ suppressWarnings(ifelse(grepl("^[0-9.]+$", .), as.numeric(.), NA_real_))))
+    
+    #Replace missing values with the minimum/five
+    if (input$missing_data_method == "Minimum Values/5") {
+      for (col in name_vec) {
+        min_value <- min(data[[col]], na.rm = TRUE) / 5
+        data[[col]][is.na(data[[col]])] <- min_value}
+    } 
+    
+    #Replace missing values values with 0
+    else if (input$missing_data_method == "Missing values = 0") {
+      data[is.na(data)] <- 0
+    }
+    
+    #Save to a .CSV file
+    write.csv(data, file.path(results_folder2, "Corrected Missing Values Metabolite Peak Areas.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+    showNotification("Data successfully corrected", type = "message")
+    
+    
+    # peak_areas_data(data)
+    
+  })
+  
   
 }#Closing bracket
   

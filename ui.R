@@ -362,19 +362,24 @@ ui <- dashboardPage(
       #### 6. Downstream processing tab####
       tabItem(
         tabName = "datamanipulation",
-        
           fluidRow(
             column(3,
                    #Select results folder to work out of 
                    selectInput("results_folder2", "Select Results Folder:", choices = NULL),
                    #Button for selecting files -> will subset/filter data to choose plots
                    selectInput("file_selector2", "Select File:", choices = NULL),
+                   #Button for loading migration data and peak area data to reactive value
                    actionButton("load_migration_area", "Load Migration and Peak Area Data"),
+                   #Button for selecting peak for m/z versus migration time plot
                    uiOutput("peak_number_selector"),
-                   fileInput("metadataFile", "Upload .csv File of Peak Position Metadata (.csv)", accept = c(".csv")),
+                   #Button for connecting metadata to results
                    actionButton("connect_metadata","Connect Metadata to Results"),
-                   actionButton("normalize", "Normalize")
-              
+                   #button for normalizing data to a selected metabolite
+                   actionButton("normalize", "Normalize"),
+                   #Option to select a missing data correction method
+                   selectInput("missing_data_method", "Select Method for Replacing Missing Data", choices = c("Minimum Values/5", "Missing values = 0")),
+                   #Action button for replacing missing data with selected button
+                   actionButton("missing_data", "Replace Missing Data")
             ),
             column(9,
                    tabsetPanel(

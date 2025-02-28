@@ -3702,6 +3702,8 @@ server <- function(input, output, session){
     files <- grab_metabolite_files(input$results_folder2)
     peak_areas_data(files$peak_areas)
     migration_times_data(files$migration_times)
+    
+    showNotification("Data loaded", type = "message")
   })
   
   #Set results folder to work out of
@@ -3771,7 +3773,7 @@ server <- function(input, output, session){
       scale_fill_manual(values = c("Metabolite" = "green", "Internal Standard" = "darkorange")) +
       labs(title = "m/z versus Migration Time (min) for all analytes", x = "Migration Time (min)", y = "m/z") +
       scale_x_continuous(limits = c(0, 40), breaks = seq(0, 50, by = 2)) +
-      theme_classic() +  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5))
+      theme_classic() +  theme(legend.position = "bottom", plot.title = element_text(hjust = 0.5, size = 16))
     
     ggplotly(p, tooltip = "text") %>% layout(legend = list(orientation = "h", x = 0.4, y = -0.2))
   })
@@ -3884,6 +3886,7 @@ server <- function(input, output, session){
     #Apply function to data
     normalized_data <- normalize_peak_areas(area, input$normalize_by)
     
+    #Update reactive data
     peak_areas_data(normalized_data)
      
     #Save normalized data to a new CSV file so original datafile is preserved
@@ -3915,17 +3918,81 @@ server <- function(input, output, session){
     
     #Replace missing values values with 0
     else if (input$missing_data_method == "Missing values = 0") {
-      data[is.na(data)] <- 0
-    }
+      data[is.na(data)] <- 0}
     
+    #Update reactive data
     peak_areas_data(data)
     
     #Save to a .CSV file
     write.csv(data, file.path(results_folder2, "Corrected Missing Values Metabolite Peak Areas.csv"), row.names = FALSE, fileEncoding = "UTF-8")
     showNotification("Data successfully corrected", type = "message")
-    
-    
   })
+  
+  
+  #####5.6 Control Charts#####
+  # Update the selectInput choices based on the reactive value
+  observe({
+    ref_data <- refMassListData()
+    if (!is.null(ref_data) && nrow(ref_data) > 0) {
+      updateSelectInput(session, "selected_metabolite", choices = ref_data$name)
+    }
+  })
+  
+  ######5.6.1 Control Charts for Non-normalized data######
+  observeEvent(input$create_control_chart, {
+    req(input$selected_metabolite)
+    
+    #Initialize environment, load data, acquire names of selected metabolite for control chart
+    selected_metabolite <- input$selected_metabolite
+    results_path <- main_folder()
+    files <- grab_metabolite_files(results_path)
+    #Load basic raw matrix. This data wont have any correction for missing values or anything normalized
+    raw_peak_areas <- files$peak_areas
+    
+    #Extract the data for the selected metabolite
+    raw_metabolite_areas <- raw_peak_areas[[selected_metabolite]]
+    
+    #Generate control chart
+    output$control_chart_raw <- renderPlotly({
+      plot_ly() %>%
+        add_trace(x = seq_along(raw_metabolite_areas), y = raw_metabolite_areas, type = 'scatter', mode = 'lines+markers', name = 'Metabolite Peak Area') %>%
+        add_lines(x = seq_along(raw_metabolite_areas), y = mean(raw_metabolite_areas), line = list(color = 'blue'), name = 'Mean') %>%
+        add_lines(x = seq_along(raw_metabolite_areas), y = mean(raw_metabolite_areas) + 3 * sd(raw_metabolite_areas), line = list(color = 'black', dash = 'dash'), name = 'Upper Control Limit') %>%
+        add_lines(x = seq_along(raw_metabolite_areas), y = mean(raw_metabolite_areas) - 3 * sd(raw_metabolite_areas), line = list(color = 'black', dash = 'dash'), name = 'Lower Control Limit') %>%
+        layout(title = paste("Control Chart for", selected_metabolite, "(Raw Data)"),
+               xaxis = list(title = "Sample", showgrid =FALSE, dtick = 2),
+               yaxis = list(title = "Peak Area", showgrid =FALSE),
+               legend = list(orientation = 'h', x = 0.5, xanchor = 'center', y = -0.2), 
+               font = list(family = "sans-serif"))
+    })
+  })
+  
+  
+  ######5.6.2 Control Charts for Non-normalized data######
+  observeEvent(input$create_control_chart, {
+    req(input$selected_metabolite)
+    
+    #Initialize environment, load data, acquire names of selected metabolite for control chart
+    selected_metabolite <- input$selected_metabolite
+    peak_areas <- peak_areas_data()
+    metabolite_data <- peak_areas[[selected_metabolite]]
+    
+    #Generate control chart
+    output$control_chart_processed <- renderPlotly({
+      plot_ly() %>%
+        add_trace(x = seq_along(metabolite_data), y = metabolite_data, type = 'scatter', mode = 'lines+markers', name = 'Metabolite Peak Area') %>%
+        add_lines(x = seq_along(metabolite_data), y = mean(metabolite_data), line = list(color = 'blue'), name = 'Mean') %>%
+        add_lines(x = seq_along(metabolite_data), y = mean(metabolite_data) + 3 * sd(metabolite_data), line = list(color = 'black', dash = 'dash'), name = 'Upper Control Limit') %>%
+        add_lines(x = seq_along(metabolite_data), y = mean(metabolite_data) - 3 * sd(metabolite_data), line = list(color = 'black', dash = 'dash'), name = 'Lower Control Limit') %>%
+        layout(title = paste("Control Chart for", selected_metabolite, "(Processed Data)"),
+               xaxis = list(title = "Sample", showgrid =FALSE, dtick = 2),
+               yaxis = list(title = "Peak Area", showgrid =FALSE),
+               legend = list(orientation = 'h', x = 0.5, xanchor = 'center', y = -0.2),
+               font = list(family = "sans-serif"))
+    })
+  })
+  
+  
   
   
 }#Closing bracket

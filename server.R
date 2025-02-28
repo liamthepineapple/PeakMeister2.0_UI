@@ -3704,17 +3704,6 @@ server <- function(input, output, session){
     migration_times_data(files$migration_times)
   })
   
-  # Render tables for the metabolite data
-  output$peak_areas_table <- DT::renderDataTable({
-    req(peak_areas_data())
-    peak_areas_data()
-  })
-  
-  output$migration_times_table <- DT::renderDataTable({
-    req(migration_times_data())
-    migration_times_data()
-  })
-  
   #Set results folder to work out of
   main_folder <- reactive({
       req(input$results_folder2)
@@ -3793,6 +3782,7 @@ server <- function(input, output, session){
     selectInput("peak_number", "Select Peak Number:", choices = 1:num_peaks)
   })
   
+  
   #####5.3 Connect Peak Position with Metadata##### 
 
   #Observe action button for connecting metadata
@@ -3810,8 +3800,8 @@ server <- function(input, output, session){
     
     #Load data
     metadata <- read.csv(metadata_path, check.names = FALSE)
-    files <- grab_metabolite_files(results_path)
-    area <- files$peak_areas
+    # files <- grab_metabolite_files(results_path)
+    area <- peak_areas_data()
     
     #identify peak columns in metadata file. Designed to by dynamic with changing peak numbers
     peak_columns <- grep("^[0-9]+$", names(metadata), value = TRUE)
@@ -3842,6 +3832,7 @@ server <- function(input, output, session){
   
     #Add merged data to reactive data file and save it to a .CSV
     peak_areas_data(merged_data)
+    
     write.csv(merged_data, file.path(results_path, "merged_peak_area.csv"), row.names = FALSE, fileEncoding = "UTF-8")
     showNotification("Metadata succesffuly connected to peak areas", type = "message")
   })
@@ -3867,23 +3858,21 @@ server <- function(input, output, session){
     #Load data and initialize the environment youre working in.
     name_vec <- c(refMassListData()$name, massData()$name)
     results_folder2 <- main_folder()
-    files <- grab_metabolite_files(results_folder2)
-    area <- files$peak_areas
+    # files <- grab_metabolite_files(results_folder2)
+    area <- peak_areas_data()
     
     #Function for normalizing peak areas
     normalize_peak_areas <- function(data, normalize_by) {
       if (!(normalize_by %in% name_vec)) {
         showNotification("Selected normalization metabolite not found in data columns.", type = "error")
-        return(data)
-      }
+        return(data)}
       
       # Convert non-numeric values to NA and ensure all columns are now numeric
       data <- data %>%
         mutate(across(all_of(name_vec), ~ suppressWarnings(ifelse(grepl("^[0-9.]+$", .), as.numeric(.), NA_real_))))
       if (all(is.na(data[[normalize_by]]))) {
         showNotification("Normalization column does not contain any numeric values.", type = "error")
-        return(data)
-      }
+        return(data)}
       
       # Normalize each row by the corresponding area for the metabolite you are using to normalize.
       data <- data %>%
@@ -3895,6 +3884,8 @@ server <- function(input, output, session){
     #Apply function to data
     normalized_data <- normalize_peak_areas(area, input$normalize_by)
     
+    peak_areas_data(normalized_data)
+     
     #Save normalized data to a new CSV file so original datafile is preserved
     write.csv(normalized_data, file.path(results_folder2, "Normalized Metabolite Peak Areas.csv"), row.names = FALSE, fileEncoding = "UTF-8")
     showNotification("Data successfully normalized", type = "message")
@@ -3905,8 +3896,10 @@ server <- function(input, output, session){
     
     #Intialize environment, define variables
     results_folder2 <- main_folder()
-    files <- grab_metabolite_files(input$results_folder2)
-    data <- files$peak_areas
+    
+    # files <- grab_metabolite_files(input$results_folder2)
+    data <- peak_areas_data()
+    
     name_vec <- c(refMassListData()$name, massData()$name)
     
     #Convert non-numeric values to NA
@@ -3925,12 +3918,12 @@ server <- function(input, output, session){
       data[is.na(data)] <- 0
     }
     
+    peak_areas_data(data)
+    
     #Save to a .CSV file
     write.csv(data, file.path(results_folder2, "Corrected Missing Values Metabolite Peak Areas.csv"), row.names = FALSE, fileEncoding = "UTF-8")
     showNotification("Data successfully corrected", type = "message")
     
-    
-    # peak_areas_data(data)
     
   })
   

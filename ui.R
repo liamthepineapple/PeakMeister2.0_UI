@@ -364,28 +364,44 @@ ui <- dashboardPage(
         tabName = "datamanipulation",
           fluidRow(
             column(3,
+                   tags$h4(style = "text-decoration: underline;", "Set working environment and initialize data"),
                    #Select results folder to work out of 
                    selectInput("results_folder2", "Select Results Folder:", choices = NULL),
-                   #Button for selecting files -> will subset/filter data to choose plots
-                   selectInput("file_selector2", "Select File:", choices = NULL),
                    #Button for loading migration data and peak area data to reactive value
                    actionButton("load_migration_area", "Load Migration and Peak Area Data"),
+                   #m/z vs MT controls
+                   tags$h4(style = "text-decoration: underline;", "m/z vs MT controls"),
+                   #Button for selecting files -> will subset/filter data to choose plots
+                   selectInput("file_selector2", "Select File:", choices = NULL),
                    #Button for selecting peak for m/z versus migration time plot
                    uiOutput("peak_number_selector"),
-                   #Button for connecting metadata to results
-                   actionButton("connect_metadata","Connect Metadata to Results"),
+                   #Manipulate Data
+                   tags$h4(style = "text-decoration: underline;", "Editing your data matrix"),
                    #button for normalizing data to a selected metabolite
                    actionButton("normalize", "Normalize"),
                    #Option to select a missing data correction method
                    selectInput("missing_data_method", "Select Method for Replacing Missing Data", choices = c("Minimum Values/5", "Missing values = 0")),
                    #Action button for replacing missing data with selected button
-                   actionButton("missing_data", "Replace Missing Data")
+                   actionButton("missing_data", "Replace Missing Data"),
+                   #Control charts
+                   tags$h4(style = "text-decoration: underline;", "Generate Control Charts"),
+                   selectInput("selected_metabolite", "Select Metabolite", choices = NULL),
+                   actionButton("create_control_chart", "Create Control Chart"),
+                   #Metadata
+                   tags$h4(style = "text-decoration: underline;", "Connecting metadata"),
+                   #Button for connecting metadata to results
+                   actionButton("connect_metadata","Connect Metadata to Results")
+                   
             ),
             column(9,
                    tabsetPanel(
                    tabPanel("m/z vs Migration Time", 
                             plotlyOutput("mz_vs_migration_plot", height = "600px")),
                    tabPanel("Control Charts",
+                            tags$h4(style = "text-decoration: underline;", "Control chart for non-normalized data"),
+                            plotlyOutput("control_chart_raw"),
+                            tags$h4(style = "text-decoration: underline;", "Control chart for normalized data"),
+                            plotlyOutput("control_chart_processed")
                             )
                    )
             )

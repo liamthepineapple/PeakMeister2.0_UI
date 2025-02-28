@@ -411,7 +411,12 @@ ui <- dashboardPage(
         tabName = "reporting",
         fluidRow(
           column(3,
+                 tags$h4(style = "text-decoration: underline;", "Generate Matrix for MetaboloAnalyst"),
                  actionButton("generate_matrix","Generate Data Matrix for Metaboloanalyst")
+          ),
+          column(9,
+                 tags$h4(style = "text-decoration: underline;", "MetaboloAnalyst Matrix"),
+                 dataTableOutput("matrix_table")
           )
         )
       )

@@ -3674,7 +3674,7 @@ server <- function(input, output, session){
   
 ####5. Downstream Processing ####    
   #####5.1 Initializing Environment for loading peak area and migration time data#####
-  # Define the function to load files
+  #Define the function to load files
   grab_metabolite_files <- function(results_folder2) {
     peak_areas_path <- file.path(results_folder2, "Metabolite Peak Areas.csv")
     migration_times_path <- file.path(results_folder2, "Metabolite Migration Times.csv")
@@ -3692,11 +3692,11 @@ server <- function(input, output, session){
     list(peak_areas = peak_areas, migration_times = migration_times)
   }
   
-  # Define reactive variables for the dataframes
+  #Define reactive variables for the dataframes
   peak_areas_data <- reactiveVal(NULL)
   migration_times_data <- reactiveVal(NULL)
   
-  # Observer for the action button
+  #Observer for the action button
   observeEvent(input$load_migration_area, {
     req(input$results_folder2)
     files <- grab_metabolite_files(input$results_folder2)
@@ -3727,7 +3727,7 @@ server <- function(input, output, session){
     data.frame(mz = mz, name = names)
   }
   
-  # Reactive expression to create a data frame for plotting
+  #Reactive expression to create a data frame for plotting
   mzMT_data <- reactive({
     
     #Initialize variables 
@@ -3747,7 +3747,7 @@ server <- function(input, output, session){
     migration_times_filtered <- filtered_migration_time[filtered_migration_time$peak.number == input$peak_number, ]
     migration_times_filtered <- migration_times_filtered[, !colnames(migration_times_filtered) %in% c("file.name", "peak.number")]
     
-    ## Extract m/z values from the column names in migration_times_filtered and match them
+    #Extract m/z values from the column names in migration_times_filtered and match them
     mz_values <- as.numeric(sub("^([0-9.]+)_.*", "\\1", colnames(migration_times_filtered)))
     matched_columns <- colnames(migration_times_filtered)[match(mz_df$mz, mz_values)]
     
@@ -3869,14 +3869,14 @@ server <- function(input, output, session){
         showNotification("Selected normalization metabolite not found in data columns.", type = "error")
         return(data)}
       
-      # Convert non-numeric values to NA and ensure all columns are now numeric
+      #Convert non-numeric values to NA and ensure all columns are now numeric
       data <- data %>%
         mutate(across(all_of(name_vec), ~ suppressWarnings(ifelse(grepl("^[0-9.]+$", .), as.numeric(.), NA_real_))))
       if (all(is.na(data[[normalize_by]]))) {
         showNotification("Normalization column does not contain any numeric values.", type = "error")
         return(data)}
       
-      # Normalize each row by the corresponding area for the metabolite you are using to normalize.
+      #Normalize each row by the corresponding area for the metabolite you are using to normalize.
       data <- data %>%
         rowwise() %>%
         mutate(across(all_of(name_vec), ~ ifelse(!is.na(.data[[normalize_by]]) & !is.na(.), . / .data[[normalize_by]], .)))
@@ -3993,7 +3993,45 @@ server <- function(input, output, session){
   })
   
   
+  ####6. Reporting####
   
+  MetaboloMatrix <- reactiveVal(NULL)
+  
+  #####6.1 Generating Data Matrix for Metaboloanalyst##### 
+  observeEvent(input$generate_matrix, {
+    
+    #Initialize environment
+    data <- peak_areas_data()
+    if (is.null(data) || nrow(data) == 0) {
+      showNotification("No data available to generate matrix", type = "error")
+      return(NULL)
+    }
+    
+    #Remove uneccesary columns and transpose the data 
+    data <- data[, !names(data) %in% c("peak.number", "file.name")]
+    transposed_data <- t(data)
+    transposed_df <- as.data.frame(transposed_data)
+    
+    #Add an empty row and name it "CLASS"
+    empty_row <- rep("", ncol(transposed_df))
+    transposed_df <- rbind(empty_row, transposed_df)
+    rownames(transposed_df)[1] <- "CLASS"
+
+    #Save Data
+    MetaboloMatrix(transposed_df)
+    write.table(transposed_df, "Metaboloanalyst_matrix.csv", row.names = TRUE, col.names = FALSE, sep = ",", fileEncoding = "UTF-8")
+    showNotification("Matrix Made", type = "message")
+  })
+  
+  
+  #Render the Matrix 
+  output$matrix_table <- renderDataTable({
+    datatable(MetaboloMatrix(), options = list(
+      scrollX = TRUE,
+      scrollY = "400px",
+      paging = FALSE
+    ))
+  })
   
 }#Closing bracket
   

@@ -3994,7 +3994,7 @@ server <- function(input, output, session){
   
   
   ####6. Reporting####
-  
+  #Create reactive variable for storing the Matrix to display it.
   MetaboloMatrix <- reactiveVal(NULL)
   
   #####6.1 Generating Data Matrix for Metaboloanalyst##### 
@@ -4004,23 +4004,56 @@ server <- function(input, output, session){
     data <- peak_areas_data()
     if (is.null(data) || nrow(data) == 0) {
       showNotification("No data available to generate matrix", type = "error")
-      return(NULL)
-    }
+      return(NULL)}
+    results_path <- main_folder()
     
-    #Remove uneccesary columns and transpose the data 
+    #Remove unnecessary columns, transpose the data, and acquire sampleIDs 
     data <- data[, !names(data) %in% c("peak.number", "file.name")]
     transposed_data <- t(data)
     transposed_df <- as.data.frame(transposed_data)
+    sampleIDs <- transposed_df["PBM Sample ID", ]
     
-    #Add an empty row and name it "CLASS"
-    empty_row <- rep("", ncol(transposed_df))
-    transposed_df <- rbind(empty_row, transposed_df)
+    #Parse user-specified categories
+    user_categories <- strsplit(input$category_input, ",")[[1]]
+    user_categories <- sapply(user_categories, function(x) {
+      kv <- strsplit(x, "=")[[1]]
+      setNames(trimws(gsub("'", "", kv[2])), trimws(kv[1]))
+    }, USE.NAMES = FALSE)
+    
+  
+    
+    #Create CLASS row based on dynamic criteria specified by text input. Allows for dynamic categorizers
+    class_row <- sapply(1:ncol(transposed_df), function(i) {
+      entry <- sampleIDs[i]
+      
+      #Check if entry is numeric and if a numeric category is specified
+      if ("Numeric" %in% names(user_categories) && suppressWarnings(!is.na(as.numeric(entry)))) {
+        return(user_categories[["Numeric"]])
+      }
+      
+      #Check user-specified categories from text input
+      for (pattern in names(user_categories)) {
+        if (pattern != "Numeric" && grepl(pattern, entry, ignore.case = TRUE)) {
+          return(user_categories[[pattern]])
+        }
+      }
+      
+      #If a class assignment is missing, assign a blank value to it.
+      return("")
+    })
+    
+    #Add class row to transposed data.
+    transposed_df <- rbind(class_row, transposed_df)
     rownames(transposed_df)[1] <- "CLASS"
-
+    
     #Save Data
     MetaboloMatrix(transposed_df)
-    write.table(transposed_df, "Metaboloanalyst_matrix.csv", row.names = TRUE, col.names = FALSE, sep = ",", fileEncoding = "UTF-8")
-    showNotification("Matrix Made", type = "message")
+    tryCatch({
+      write.table(transposed_df, file.path(results_path, "Metaboloanalyst_matrix.csv"), row.names = TRUE, col.names = FALSE, sep = ",", fileEncoding = "UTF-8")
+      showNotification("Matrix Made", type = "message")
+    }, error = function(e) {
+      showNotification("Failed to save matrix: " + e$message, type = "error")
+    })
   })
   
   
@@ -4032,6 +4065,13 @@ server <- function(input, output, session){
       paging = FALSE
     ))
   })
+  
+  #clear cache once session has ended
+  session$onSessionEnded(function() {
+    gc()
+    stopApp()
+  })
+  
   
 }#Closing bracket
   

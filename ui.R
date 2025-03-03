@@ -418,7 +418,8 @@ ui <- dashboardPage(
           column(3,
                  tags$h4(style = "text-decoration: underline;", "Generate Matrix for MetaboloAnalyst"),
                  actionButton("generate_matrix","Generate Data Matrix for Metaboloanalyst"),
-                 textAreaInput("category_input", "Specify classes for matrix (e.g., SP1=SP1, SP2=SP2, Blank=Blank, Numeric=Positive samples. Class names are case sensitive.)", rows = 5)
+                 textAreaInput("category_input", "Specify classes for Metaboloanalyst matrix", rows = 5),
+                 HTML("<p><strong>Note:</strong> Class assignments for your matrix can be both specific and/or generic. Specific class assignments include assignments such as 'SP1 = Standard1', 'SP2 = Standard2', and 'NIST = SRM30061'. Generic assignments would include assignments such as assigning all numeric values to Positive_Samples such as 'Numeric = Positive_Samples'.<br><br>An example of a set of class assignments would be: 'SP1=Standard1,SP2 =Standard2, NIST = SRM361, Numeric=Pos_Sample' <br><br> Class names are case sensitive, and multiple class specifications are separated by a comma. Class names must be one word (no spaces)</p>")
           ),
           column(9,
                  tags$h4(style = "text-decoration: underline;", "MetaboloAnalyst Matrix"),

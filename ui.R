@@ -294,7 +294,8 @@ ui <- dashboardPage(
        uiOutput("progressBar")
       ),
       
-      #Visualization tab
+      
+      ####6. Visualization tab####
       tabItem(tabName = "processing",
               fluidRow(
                 column(4,
@@ -302,6 +303,8 @@ ui <- dashboardPage(
                        fileInput("RDatainput", "Uploaded .RData file", accept = c(".RData")),
                        #Button for selecting files -> will subset/filter data to choose plots
                        selectInput("file_selector", "Select File:", choices = NULL),
+                       HTML("<p><strong>Warning:</strong> You can only edit the data of a <strong><u>single</strong></u> file<br> at a time. Switching files will remove any changes<br> if plots have not been regenerated. Modifications <br>can be observed in the table below.</p>"),
+                       
                        #Select results folder to work out of 
                        selectInput("results_folder", "Select Results Folder:", choices = NULL),
                        #Select plots, display plots
@@ -359,7 +362,7 @@ ui <- dashboardPage(
               )
             ),
       
-      #### 6. Downstream processing tab####
+      #### 7. Downstream processing tab####
       tabItem(
         tabName = "datamanipulation",
           fluidRow(
@@ -407,12 +410,15 @@ ui <- dashboardPage(
             )
           )
         ),
+      
+      ####8. Reporting Tab####
       tabItem(
         tabName = "reporting",
         fluidRow(
           column(3,
                  tags$h4(style = "text-decoration: underline;", "Generate Matrix for MetaboloAnalyst"),
-                 actionButton("generate_matrix","Generate Data Matrix for Metaboloanalyst")
+                 actionButton("generate_matrix","Generate Data Matrix for Metaboloanalyst"),
+                 textAreaInput("category_input", "Specify classes for matrix (e.g., SP1=SP1, SP2=SP2, Blank=Blank, Numeric=Positive samples. Class names are case sensitive.)", rows = 5)
           ),
           column(9,
                  tags$h4(style = "text-decoration: underline;", "MetaboloAnalyst Matrix"),

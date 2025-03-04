@@ -6,7 +6,7 @@
 if (!require("pacman", quietly = TRUE)) install.packages("pacman")
 if (!require("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 
-pacman::p_load("shiny","shinyBS", "tools","waiter","shinyFiles","RColorBrewer","shinycssloaders", "shinydashboard", "DT", "shinyalert","ggplot2","ggpubr", "plotly","hash","pracma", "tidyverse", "stats", "DescTools", "xcms", "rlang","markdown", "openxlsx","readxl","writexl","fontawesome", "MSnbase", "mzR","shinyjs",
+pacman::p_load("shiny","shinyBS", "tools","waiter","shinyFiles","RColorBrewer","shinycssloaders", "shinydashboard", "DT", "shinyalert","ggplot2","ggpubr", "plotly","hash","pracma", "tidyverse", "stats", "DescTools", "xcms", "rlang","markdown", "openxlsx","readxl","writexl","fontawesome", "MSnbase", "mzR","shinyjs","FactoMineR", "factoextra",
                install = TRUE)
 
 #Title of app
@@ -407,17 +407,28 @@ ui <- dashboardPage(
                             plotlyOutput("control_chart_processed")
                             ),
                    tabPanel("CVs",
+                            fluidRow(
+                            column(3,
                             textInput("category_input", "Specify QC identifier (e.g., QC=QC)", value = "QC=QC"),
                             textInput("exclude_ids", "Exclude PBM Sample IDs (comma-separated)", ""),
                             actionButton("compute_cv", "Calculate CVs"),
-                            textOutput("average_qc_cv"),
-                            textOutput("average_non_qc_cv"),
-                            tableOutput("cv_table"),
                             
-                            # Add plot output for the CV plot
-                            plotlyOutput("cv_plot")
-                   
+                            tags$h4(style = "text-decoration: underline;", "Average CVs (%)"),
+                            tableOutput("average_cv_table")
+                            
+                            ),
+                            column(9,
+                                   plotOutput("pca_plot")
+                                  )
+                                ),
+                            fluidRow(
+                              column(12,
+                                     tags$h4(style = "text-decoration: underline;", "CV based on m/z of metabolite"),
+                                    #Add plot output for the CV plot
+                                    plotlyOutput("cv_plot")
+                              )
                             )
+                          )
                    )
             )
           )

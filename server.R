@@ -3993,6 +3993,76 @@ server <- function(input, output, session){
   })
   
   
+  #####5.7 CV calculations#####
+  ######5.7.1 Define functions to calculate CV######
+  
+  calculate_cv <- function(data){
+    cv <- apply(data, 2, function(x) sd(x) / mean(x) * 100)
+    return(cv)
+  }
+  
+  #Reactive expression to calculate CVs
+  cv_data <- reactive({
+    data <- peak_areas_data()
+    metabolite_data <- data[, 4:ncol(data)]
+    cv <- calculate_cv(metabolite_data)
+    return(cv)
+  })
+  
+  #Separate QCs and other samples based on user input
+  average_cv <- reactive({
+    data <- peak_areas_data()
+    
+    #Extract user specified dynamic categories
+    user_categories <- strsplit(input$category_input, ",")[[1]]
+    user_categories <- sapply(user_categories, function(x) {
+      kv <- strsplit(x, "=")[[1]]
+      setNames(trimws(gsub("'", "", kv[2])), trimws(kv[1]))
+    }, USE.NAMES = FALSE)
+    
+    #Ensure column name exists
+    if (!"PBM Sample ID" %in% colnames(data)) {
+      stop("Column 'PBM Sample ID' not found in data")
+    }
+    
+    #Exclude specific sample IDs from CV analysis.
+    exclude_ids <- strsplit(input$exclude_ids, ",")[[1]]
+    exclude_ids <- trimws(exclude_ids)
+    data <- data %>% filter(!`PBM Sample ID` %in% exclude_ids)
+    
+    qc_samples <- data %>% filter(grepl(user_categories[["QC"]], `PBM Sample ID`, ignore.case = TRUE))
+    non_qc_samples <- data %>% filter(!grepl(user_categories[["QC"]], `PBM Sample ID`, ignore.case = TRUE))
+    #Calculate CVs for QC and non-QC samples
+    qc_cv <- calculate_cv(qc_samples[, 4:ncol(qc_samples)])
+    non_qc_cv <- calculate_cv(non_qc_samples[, 4:ncol(non_qc_samples)])
+    
+    list(qc_cv = mean(qc_cv), non_qc_cv = mean(non_qc_cv), non_qc_cv_values = non_qc_cv)
+  })
+  
+  ######5.7.2 Output for CV processing###### 
+  observeEvent(input$compute_cv, {
+    avg_cv <- average_cv()
+    
+    output$average_qc_cv <- renderText({paste("Average CV (Technical):", avg_cv$qc_cv)})
+    output$average_non_qc_cv <- renderText({paste("Average CV (biological):", avg_cv$non_qc_cv)})
+    
+    #Extract m/z values and names ande create a dataframe to plot m/z vs CV
+    mz_names <- extract_mass(colnames(peak_areas_data())[4:ncol(peak_areas_data())])
+    plot_data <- data.frame(mz = mz_names$mz, cv = avg_cv$non_qc_cv_values, name = colnames(peak_areas_data())[4:ncol(peak_areas_data())])
+    
+    #Sort the data frame by m/z values
+    plot_data <- plot_data[order(plot_data$mz), ]
+    
+    #Create the plot
+    output$cv_plot <- renderPlotly({
+      plot_ly(plot_data, x = ~mz, y = ~cv, type = 'scatter', mode = 'lines+markers', text = ~name, hoverinfo = 'text+x+y') %>%
+        layout(title = "CV per Metabolite (Non-QC Samples)",
+               xaxis = list(title = "m/z"),
+               yaxis = list(title = "CV (%)"))
+    })
+  })
+  
+  
   ####6. Reporting####
   #Create reactive variable for storing the Matrix to display it.
   MetaboloMatrix <- reactiveVal(NULL)
@@ -4065,6 +4135,7 @@ server <- function(input, output, session){
       paging = FALSE
     ))
   })
+  
   
   #clear cache once session has ended
   session$onSessionEnded(function() {

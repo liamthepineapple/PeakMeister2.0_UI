@@ -3996,6 +3996,7 @@ server <- function(input, output, session){
   #####5.7 CV calculations#####
   ######5.7.1 Define functions to calculate CV######
   
+  #CV calculation function 
   calculate_cv <- function(data){
     cv <- apply(data, 2, function(x) sd(x) / mean(x) * 100)
     return(cv)
@@ -4009,6 +4010,43 @@ server <- function(input, output, session){
     return(cv)
   })
   
+  ######5.7.2 Define functions for creating PCA plots######
+  #Function to perform Pareto scaling
+  pareto_scale <- function(data) {
+    scaled_data <- scale(data, center = TRUE, scale = sqrt(apply(data, 2, sd)))
+    return(scaled_data)
+  }
+  
+  #Function for removing columns with zero variance
+  remove_zero_variance <- function(data) {
+    data_matrix <- as.matrix(data)
+    zero_variance_cols <- apply(data_matrix, 2, function(x) var(x) == 0)
+    data_matrix <- data_matrix[, !zero_variance_cols]
+    return(data_matrix)
+  }
+  
+  #Function to perform PCA with additional checks
+  perform_pca <- function(data) {
+    data <- remove_zero_variance(data)
+    if (any(is.infinite(data))) {
+      stop("Data contains infinite values.")
+    }
+    scaled_data <- pareto_scale(data)
+    pca_result <- PCA(scaled_data, graph = FALSE)
+    return(pca_result)
+  }
+  
+  
+  #PCA expression
+  pca_data <- reactive({
+    data <- peak_areas_data()
+    metabolite_data <- data[, 4:ncol(data)]
+    print(head(metabolite_data))
+    pca_result <- perform_pca(metabolite_data)
+    return(pca_result)
+  })
+  
+  ######5.7.3 Function for extracting QC and non-QC catagories from user input######
   #Separate QCs and other samples based on user input
   average_cv <- reactive({
     data <- peak_areas_data()
@@ -4036,15 +4074,26 @@ server <- function(input, output, session){
     qc_cv <- calculate_cv(qc_samples[, 4:ncol(qc_samples)])
     non_qc_cv <- calculate_cv(non_qc_samples[, 4:ncol(non_qc_samples)])
     
-    list(qc_cv = mean(qc_cv), non_qc_cv = mean(non_qc_cv), non_qc_cv_values = non_qc_cv)
+    #Combine QC and non-QC samples for PCA and store values
+    combined_data <- rbind(qc_samples, non_qc_samples)
+    pca_result <- perform_pca(combined_data[, 4:ncol(combined_data)])
+    list(qc_cv = mean(qc_cv), non_qc_cv = mean(non_qc_cv), non_qc_cv_values = non_qc_cv, pca_result = pca_result, qc_samples = qc_samples, non_qc_samples = non_qc_samples)
   })
   
-  ######5.7.2 Output for CV processing###### 
+  
+  ######5.7.4 Output for CV processing###### 
   observeEvent(input$compute_cv, {
+    #######5.7.2.1 CV plot#######
     avg_cv <- average_cv()
     
-    output$average_qc_cv <- renderText({paste("Average CV (Technical):", avg_cv$qc_cv)})
-    output$average_non_qc_cv <- renderText({paste("Average CV (biological):", avg_cv$non_qc_cv)})
+    #Create a data frame for the average CV values
+    cv_table <- data.frame(
+      Type = c("Technical CV (%)", "Biological CV (%)"),
+      `Average CV` = c(avg_cv$qc_cv, avg_cv$non_qc_cv))
+    
+    #Render the table
+    output$average_cv_table <- renderTable({
+      cv_table})
     
     #Extract m/z values and names ande create a dataframe to plot m/z vs CV
     mz_names <- extract_mass(colnames(peak_areas_data())[4:ncol(peak_areas_data())])
@@ -4059,6 +4108,40 @@ server <- function(input, output, session){
         layout(title = "CV per Metabolite (Non-QC Samples)",
                xaxis = list(title = "m/z"),
                yaxis = list(title = "CV (%)"))
+    })
+    
+    #######5.7.2.2 Create PCA plot#######
+    output$pca_plot <- renderPlot({
+      
+      #Intialize environment 
+      qc_samples <- avg_cv$qc_samples
+      non_qc_samples <- avg_cv$non_qc_samples
+      pca_data <- data.frame(avg_cv$pca_result$ind$coord)
+      pca_data$SampleType <- rep(c("QC", "Non-QC"), c(nrow(qc_samples), nrow(non_qc_samples)))
+      variance_explained <- avg_cv$pca_result$eig[1:2, 2]
+      
+      #Generate plot 
+      ggplot(pca_data, aes(x = Dim.1, y = Dim.2, color = SampleType)) +
+        geom_point() +
+        stat_ellipse() +
+        scale_color_manual(values = c("QC" = "#38A700", "Non-QC" = "#780116")) +
+        theme_classic() +
+        theme(
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          axis.text = element_text(size = 14),
+          axis.title = element_text(size = 16),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size = 16),
+          plot.title = element_text(hjust = 0.5, size = 16, face = "bold")
+        ) +
+        geom_hline(yintercept = 0, linetype = "dashed", color = "grey") +
+        geom_vline(xintercept = 0, linetype = "dashed", color = "grey") +
+        labs(
+          title = "Quality Control PCA Plot for QCs and Non-QC Samples (PC1 & PC2)",
+          x = paste0("PC1 (", round(variance_explained[1], 2), "%)"),
+          y = paste0("PC2 (", round(variance_explained[2], 2), "%)"), colour = "Sample Type"
+        )
     })
   })
   

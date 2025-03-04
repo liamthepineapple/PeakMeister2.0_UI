@@ -405,6 +405,18 @@ ui <- dashboardPage(
                             plotlyOutput("control_chart_raw"),
                             tags$h4(style = "text-decoration: underline;", "Control chart for normalized data"),
                             plotlyOutput("control_chart_processed")
+                            ),
+                   tabPanel("CVs",
+                            textInput("category_input", "Specify QC identifier (e.g., QC=QC)", value = "QC=QC"),
+                            textInput("exclude_ids", "Exclude PBM Sample IDs (comma-separated)", ""),
+                            actionButton("compute_cv", "Calculate CVs"),
+                            textOutput("average_qc_cv"),
+                            textOutput("average_non_qc_cv"),
+                            tableOutput("cv_table"),
+                            
+                            # Add plot output for the CV plot
+                            plotlyOutput("cv_plot")
+                   
                             )
                    )
             )
@@ -419,7 +431,7 @@ ui <- dashboardPage(
                  tags$h4(style = "text-decoration: underline;", "Generate Matrix for MetaboloAnalyst"),
                  actionButton("generate_matrix","Generate Data Matrix for Metaboloanalyst"),
                  textAreaInput("category_input", "Specify classes for Metaboloanalyst matrix", rows = 5),
-                 HTML("<p><strong>Note:</strong> Class assignments for your matrix can be both specific and/or generic. Specific class assignments include assignments such as 'SP1 = Standard1', 'SP2 = Standard2', and 'NIST = SRM30061'. Generic assignments would include assignments such as assigning all numeric values to Positive_Samples such as 'Numeric = Positive_Samples'.<br><br>An example of a set of class assignments would be: 'SP1=Standard1,SP2 =Standard2, NIST = SRM361, Numeric=Pos_Sample' <br><br> Class names are case sensitive, and multiple class specifications are separated by a comma. Class names must be one word (no spaces)</p>")
+                 HTML("<p><strong>Note:</strong> Class assignments for your matrix can be both specific and/or generic. Specific class assignments include assignments such as 'SP1 = Standard1', 'SP2 = Standard2', and 'NIST = SRM30061'. Generic assignments would include assignments such as assigning all numeric values to Positive_Samples such as 'Numeric = Positive_Samples'.<br><br>An example of a set of class assignments would be: 'SP1=Standard1,SP2 =Standard2, NIST = SRM361, Numeric=Pos_Sample' <br><br>Unassigned sample classes are left blank. Class names are case sensitive, and multiple class specifications are separated by a comma. Class names must be one word (no spaces)</p>")
           ),
           column(9,
                  tags$h4(style = "text-decoration: underline;", "MetaboloAnalyst Matrix"),

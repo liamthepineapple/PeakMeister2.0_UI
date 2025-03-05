@@ -50,11 +50,11 @@ Where
 
 1. $MT_{Metabolite}$ is the predicted migration time of the metabolite
 
-This app would not be possible without @helmeczi_software_2024, @deutsch_file_2012, and @wilhelm_mz5_2011
+This app would not be possible without the following literature: [@helmeczi_software_2024], [@deutsch_file_2012], and [@wilhelm_mz5_2011]
 
 ### **How to use**
 ***
-PeakMeister2.0- UI includes the use of a graphical user interface (GUI) run by shiny intended to be used with zero knowledge of code. This requires the user to have [R](https://www.r-project.org/) and [R studio](https://posit.co/download/rstudio-desktop/) installed. PeakMeister2.0 UI requires [R version 4.2](https://mirror.csclub.uwaterloo.ca/CRAN/) or [R version 4.3](https://mirror.csclub.uwaterloo.ca/CRAN/). Due to outdated packages, PeakMeister2.0_UI will not work on R version 4.4.
+PeakMeister2.0-UI includes the use of a graphical user interface (GUI) run by shiny intended to be used with zero knowledge of code. This requires the user to have [R](https://www.r-project.org/) and [R studio](https://posit.co/download/rstudio-desktop/) installed. PeakMeister2.0 UI requires [R version 4.2](https://mirror.csclub.uwaterloo.ca/CRAN/) or [R version 4.3](https://mirror.csclub.uwaterloo.ca/CRAN/). Due to outdated packages, PeakMeister2.0_UI will not work on R version 4.4.
 
 #### **Setting up**
 
@@ -92,7 +92,7 @@ Use the project file to open the R script titled "app.R" and execute the script 
 ### **Detailed Usage**
 ***
 
-Although PeakMeister is a script based software tool, users will typically require little to no knowledge of coding to pre-process their data as an excel sheet containing all pre-processing parameters is provided. In this detailed usage overview, the purpose of each parameters and how they can be manipulated to accurately annotate MSI-CE-MS data will be explained.
+Although PeakMeister is a R-based software tool, users will typically require little to no knowledge of coding to pre-process their data as an excel sheet containing all pre-processing parameters is provided. In this detailed usage overview, the purpose of each parameters and how they can be manipulated to accurately annotate MSI-CE-MS data will be explained.
 
 #### **Mass List and Paramaters File**
 
@@ -134,7 +134,7 @@ For this sheet, I will focus on the sections not discussed above. Features used 
 
 Upon Launching the app, you're taken to a homepage with 6 tabs displayed on the left. The tabs are as following:
 
-##### 1. *About*
+##### 1. **About**
 ***
 
 This tabs contains information about the app including the detailed README file for how the app works. Tabs are dropdown menus that display information once clicked. The following tabs are present
@@ -144,7 +144,7 @@ This tabs contains information about the app including the detailed README file 
 3. Updates -> location for any recent updates
 4. License -> Includes MIT license
 
-##### 2. *User Supplied Parameters*
+##### 2. **User Supplied Parameters**
 ***
 
 User supplied parameters is the location where an individual will specify the paramaters used in the PeakMeister computations. Users can upload excel files with the required information (supplied in the Sample Files folder) which will automatically populate the data table with the contained information. If a table is not available, users can input their data using the app interface in addition to saving this data to a prelabeled parameters datafile. Uploaded data can also be edited direcly in the table by double clicking column. The tabs are as following
@@ -169,10 +169,10 @@ Tab for adding basic project metadata. This includes project name, a description
 
 Only required for when users select "Yes" in the Manual.Indexes option in the Parameters tab. Will auto-populate when users upload excel file titled User Supplied Migration Indexes. Provides option for users to supply their own migration time indexes. 
 
-##### 3. *Engine*
+##### 3. **Engine**
 ***
 
-This tab is where the major computation is performed. The metaphorical engine of our metaphorical car. This requires .mz5 files to run.Users will click on "Browse" to select a .mz5 file to upload. This file can be stored anywhere on your computer and the app will upload it. When the file is uploaded, shiny stores it until the app is closed. Uploaded files will be displayed in a rendered data table so the user can check the files that they have selected. Once files have been uploaded, users can click the big button labeled "Initialize Run" which will start the button. This button will not do anything until the uploaded .mz5 files are uploaded and additinoally requires the Mass List and Paramaters to be uploaded. An option exists for a user to check a checkbox that will automatically start the run after the very last data file has been uploaded. This allows the user to upload a large amount of files and walk away from their computer knowing the app will automatically start once the last file is uploaded. The computation will then be performed on your samples. The run will give the following files/folder:
+This tab is where the major computation is performed. The metaphorical engine of our metaphorical car. This requires .mz5 files to run.Users will click on "Browse" to select a .mz5 file to upload. This file can be stored anywhere on your computer and the app will upload it. When the file is uploaded, shiny stores it until the app is closed. Uploaded files will be displayed in a rendered data table so the user can check the files that they have selected. Once files have been uploaded, users can click the big button labelled "Initialize Run" which will start the button. This button will not do anything until the uploaded .mz5 files are uploaded and additionally requires the Mass List and Parameters to be uploaded. An option exists for a user to check a checkbox that will automatically start the run after the very last data file has been uploaded. This allows the user to upload a large amount of files and walk away from their computer knowing the app will automatically start once the last file is uploaded. The computation will then be performed on your samples. The run will give the following files/folder:
 
 1. Mass List and Parameters (.xlsx)
 
@@ -202,10 +202,11 @@ A Rdata file containing all generated interactive plotly plots. ALlows for visua
 
 Stores the raw metadata for each datafile. This includes all information required for generating the plots and calculating peak areas.
 
+##### *Generating pseudo .mz5 files*
 
-An option also exists for generating pseudo .mz5 files. This option is intended for the user to generate empty temporary .mz5 files with the same name as the real .mz5 files that have already been run through the app. The app requires the name of the .mz5 files to access the stored data associated with each plot. This avoids the user having to upload the real .mz5 files which are often >1GB in size and can take considerable time to upload when working with a large quantity of files. Additionally, the user can place their file names into an excel file with a column titled "FileName" and PeakMeister will generate these pseudo .mz5 files from the names provided with the press of a button. Note, these generated files are empty and must be cleared before the user processes and real files on the app.
+PeakMeister2.0_UI is designed in some places to utilize the file names from the .mz5 files.  The app requires the name of the .mz5 files to access the stored data associated with each plot. Real .mz5 files are large and take up a lot of space on the computer, so it seems foolish to require the user to upload these large files (which can take ~15-20s) every time they want to process or analyze their data. PeakMeister2.0_UI has an option for generating "pseudo" .mz5 files. The word 'pseudo' is a prefix that means 'pretended' or 'not real.' These are empty files with the .mz5 extension, that have the same name as the .mz5 files used in the users data analysis. They essentially take up 0kb of space. The user can type the file name of their real .mz5 files into the data table. More rows can be added by clicking 'Add Empty Row'. The user can additionally upload and excel file titled 'file_upload_names' which contains a column titled 'FileName' which contains the file names of the .mz5 files you are trying to generate. Pseudo .mz5 files are generated when the user clicks the 'Generate Pseudo .mz5 Files' button. Note, these generated files are empty and must be cleared before the user processes and real files on the app.
 
-##### 4. *Visualization*
+##### 4. **Visualization**
 ***
 
 This tab is where users can view their results in an interactive plot format. Requires users to have uploaded their .mz5 files in the "Engine" tab. When this computation it run, it will automatically store the plots into the apps memory. These plots will remain until the app is closed. However, each run generates a .RData file called "plotly_objects" that store the information required for the plots. Users can click the "Browse" button under the "Uploaded .Rdata file" section which will allow users to upload the plots to the app. 
@@ -216,7 +217,7 @@ The user can also specify the folder they are working out of in the "Select Resu
 
 There are two subtabs to display the plots in which are titled "Plotting" or "Dual EIE View." The default is the "Plotting" tab.
 
-##### *Plotting tab*
+##### *Plotting subtab*
 
 This is the default tab for displaying the plots. The user selects a plot from the "Loaded Plots" table which then causes the selected plot to render. Additionally, the data associated with all the peaks will display underneath the plot with information on the peak number, the apex of the peak in seconds, and the maximum intensity. A number of buttons are available for editing the plots which are described below:
 
@@ -244,20 +245,53 @@ This button is similar in function to the "adjust individual baseline" button, o
 
 All modifications done to plots mark the plots as "modified" which will display in a table titled "Edited plots to be regenerated." The "regenerate changed plots" button essentially remakes the plots with the new edited data. The default is just updating the plotly plots but if a user has the "Mass List and Parameters" excel sheet upload onto the app, it will also update the saved .png plots in the "plots" subfolder of each results folder. The stored plotly objects are compressed into a smaller file size which takes a few more seconds but decreases file size by an order of magnitude in cases with a large number of plots. This process does take time so it is advised that plots are regenerated after all edits for a specific data file have been performed. 
 
-##### *Dual EIE View tab*
+##### *Dual EIE View subtab*
 
 This tab allows the user to display two electropherograms for use in identifying comigrating ions. Upon selecting this tab, the user will see two tables appear. These tables indicate to the program which plots you would like to compare. The table on the left will display the plot on top while the table on the right will display the bottom plot. Users will select the plots they wish to display by selecting the plot from the table. This will render a combined plot which can be zoomed into. Note: this can only be used to compare two plots from the **same** data file.
 
 
-##### 5. *Quality Control*
+##### 5. **Downstream Processing**
 ***
 
-Currently inactive tab
+This tab is where users can make large-scale modifications to their data after it has been edited or adjusted in the visualization tab. This requires you to have the 'Metabolite Peak Areas.csv' and the 'Metabolite Migration Times.csv' files. The user also must upload the 'Mass List and Parameters' file in the 'User Supplied Parameters' tab. While its not required to upload the files, the user should upload or generate .mz5 files or pseudo .mz5 files (generated in the 'Engine' tab). These files are required to properly generate the m/z versus migration time plot. To begin, the user must first select the results folder to work from. This is **not** connected to the results folder selection option in the visualization tab. Once a results folder is set, the user can click the button 'Load Migration and Peak Area Data' which will grab the required .csv files from the results folder you selected and upload their information to the app. The peak area data can be viewed at any time in the Metadata subtab.
 
-##### 6. *Reporting*
+
+The app automatically generates a plot of the migration time versus the m/z and groups the data as internal standards and metabolites. The user can select the file they wish to look at in addition to selecting the peak being displayed.
+
+
+As mentioned earlier, this tab is designed to allow the user to make large scale edits to their data. The app gives the user two different methods for handling missing data: replacing the missing data by the minimum peak area divided by five or replacing the missing data with zero. The user can select their method and then click the 'Replace Missing Data' button and all missing data in the peak area data will be replaced using the method you selected. This includes the <LOD, interfered, or NPD peak areas. This new data will then be saved to a new .csv file titled 'Corrected Missing Values Metabolite Peak Areas.csv' in the selected results folder. This will **not** modify the original 'Metabolite Peak Areas.csv', ensuring transparency along the data processing pipeline. 
+
+
+The user can then normalize their data to one of the metabolites by clicking the 'Normalize Data' button. Upon clicking, a popup will appear will the user can select the metabolite they wish to normalize by. The current options for normalizing are using 144.0667_Creatinine, 184.0774_F-Phe, or 216.0427_Cl-Tyr. If the user wishes to normalize using a metabolite not listed here, they can simply add it to the server.R script in section 5.3 by modifying the following line:
+
+```r
+SelectInput("normalize_by", "Normalize By", choices = c("114.0667_Creatinine", "184.0774_F-Phe", "216.0427_Cl-Tyr"))
+```
+
+Once normalized, the new data will again be saved as a new .csv file titled 'Normalized Metabolite Peak Areas.csv' and the original peak area data will remain untouched.
+
+
+Once the missing values have been replaced and the data has been normalized (normalization is not required, but encouraged), the user can connect existing metadata to their peak area results. This assigns a sample ID to the peak position. The name of the column for the sample ID is currently hard-coded to 'PBM Sample ID'. This can be edited in the server.R code as you see fit. This requires the user to create and place a .csv file into the 'Data' subfolder with the name 'metadata.csv'. **The name of this file is case sensitive and must be named metadata.** Once clicked, a new .csv file will be generated called 'merged_peak_areas.csv' The data stored on the app itself will reflect all these changes, but the original Metabolite Peak Areas file will remain unchanged. The tab 'Reporting' and the subtab 'Data Quality and Variability' require the metadata connected to the peak area results.    
+
+##### *Control Charts*
+
+This tab is for generating control charts for your data. This tab requires you to have loaded your migration and peak area data into the app in addition to having uploaded the 'Mass List and Parameters' file. Users can select a control chart they wish to display from the dropdown menu. Two control charts are generated when the user clicks the 'Create Control Chart' button. The first control chart shows the raw data from the 'Metabolite Peak Areas.csv' file. The second chart displays the same data after it has been normalized (if the user has normalized their data to a metabolite). 
+
+##### *Data Quality and Variability*
+
+This tab is for assessing the quality of the data runs through the use of CVs and a PCA. This is limited to comparing **two groups**: QC and non-QC. This requires the user to have connected the metadata to their peak areas. This tab allows the user to dynamically specify which samples are QC samples, which samples are not QC samples, and which samples to exclude from this analysis. To specify which samples are QC samples, the user can type 'QC=XYZ' in the text box titled 'Specify QC identifier' where 'XYZ' is PBM Sample ID for the quality control samples in your study. This entry cannot have any whitespace (no spaces), must be a single word; however, it is not case sensitive. PeakMeister2.0_UI additionally allows you to exclude samples from your variance assessments. Such samples would include things such as calibration solutions. These exclusions can be specified by typing the specific PBM sample IDs to exclude in the provided text box with each entry separated by a comma. For example, if the user wanted to exclude the sample IDs SP1, SP2, the blanks, and some calibration solutions, the user would type into the box 'SP1,SP2,Blank,C1,C2,C3,C4,C5,C6'. These exclusions **are** case sensitive.
+
+
+Once these catagories have been specified, the user can click the 'Calculate CVs' button. This generates the following items. The first item generated is a PCA plot showing PC1 and PC2 for your QCs and non QCs. This PCA is also saved as a .png file with a quality of 300DPI in the 'data' subfolder located in the results folder you are working out of. The button also generates a table that lists the technical CV and biological CV as a percentage. The final item generated is a plot of the CV based on the m/z of the metabolite for both QC and non-QC samples, showing the median CV for each group.      
+
+##### *Metadata*
+
+This tab displays the peak area data you are working with after it has been uploaded onto the app.
+
+##### 6. **Reporting**
 ***
 
-Currently inactive tab
+This tab is for generating a datamatrix in the required format for [MetaboAnalyst](https://www.metaboanalyst.ca/). This requires the users to have connected the metadata to their peak area results. To process your data using the Generic format statistical analysis, MetaboAnalyst requires the data to contain a "CLASS" row, which is a way of categorizing your data into groups. This tab is designed to allow the user to dynamically assign classes to their data. In addition, it transforms and transposes your data into the required format to run your statistical analysis. Similar to the 'Data Quality and Variability' subtab, the syntax is 'PBM Sample ID = CLASS specifier' such as 'SP1 = Standard'. Class assignments can be both specific and generic. A specific assignment includes things such as 'SP1=Standard', 'SP2 = Standard', 'SRM = SRM3061'and '303 = Positive_Sample'. Generic class assignments would include something such as assigning all numeric values (typically your actual sample IDs) as 'Positive_Samples'. For example, to use a generic assignment the user would type 'Numeric=Positive_Sample'. Unassigned classes will be left blank. Class names are case sensitive (the value you are assigning a class to must be named what it is in the PBM Sample ID column) and multiple class specifications are separated by a comma. Class names must be one word. Whitespace is allowed when specifying multiple classes. An example of class assignments would be 'SP1 = Standard, SP2 = Standard, NIST = SRM3061, Numeric = Pos_Sample'. Upon clicking the 'Generate Data Matrix for MetaboAnalyst', the data will be transformed, a matrix will be made with your specified class assignments, and the matrix will be saved as a .csv file titled ' Metaboanalyst_matrix.csv' in the results folder you specified in the 'Downstream Processing' tab.   
 
 ### Copyright
 ***

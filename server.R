@@ -4014,7 +4014,7 @@ server <- function(input, output, session){
   })
   
   
-  #####5.7 CV calculations#####
+  #####5.7 CV and PCA determination for QC variance checks#####
   ######5.7.1 Define functions to calculate CV######
   
   #CV calculation function 
@@ -4104,7 +4104,7 @@ server <- function(input, output, session){
   
   ######5.7.4 Output for CV processing###### 
   observeEvent(input$compute_cv, {
-    #######5.7.2.1 CV plot#######
+    #######5.7.4.1 CV plot#######
     
     #Check if peak_areas_data() is NULL
     if (is.null(peak_areas_data())) {
@@ -4112,6 +4112,8 @@ server <- function(input, output, session){
       return()}
     
     avg_cv <- average_cv()
+    
+    median_cv <- median(avg_cv$non_qc_cv_values, na.rm = TRUE)
     
     #Create a data frame for the average CV values
     cv_table <- data.frame(
@@ -4131,13 +4133,15 @@ server <- function(input, output, session){
     
     #Create the plot
     output$cv_plot <- renderPlotly({
-      plot_ly(plot_data, x = ~mz, y = ~cv, type = 'scatter', mode = 'lines+markers', text = ~name, hoverinfo = 'text+x+y') %>%
+      plot_ly(plot_data, x = ~mz, y = ~cv, type = 'scatter', mode = 'lines+markers', text = ~name, hoverinfo = 'text+x+y', name = 'Metabolite CV') %>%
+        add_trace(x = ~mz, y = rep(median_cv, length(plot_data$mz)), type = 'scatter', mode = 'lines', line = list(dash = 'dash', color = 'black'), name = 'Median CV') %>%
         layout(title = "CV per Metabolite (Non-QC Samples)",
                xaxis = list(title = "m/z"),
-               yaxis = list(title = "CV (%)"))
+               yaxis = list(title = "CV (%)"),
+               legend = list(orientation = 'h', x = 0.5, xanchor = 'center', y = -0.2))
     })
     
-    #######5.7.2.2 Create PCA plot#######
+    #######5.7.4.2 Create PCA plot#######
     output$pca_plot <- renderPlot({
       
       #Intialize environment 

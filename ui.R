@@ -382,12 +382,12 @@ ui <- dashboardPage(
                    uiOutput("peak_number_selector"),
                    #Manipulate Data
                    tags$h4(style = "text-decoration: underline;", "Editing your data matrix"),
-                   #button for normalizing data to a selected metabolite
-                   actionButton("normalize", "Normalize"),
                    #Option to select a missing data correction method
                    selectInput("missing_data_method", "Select Method for Replacing Missing Data", choices = c("Minimum Values/5", "Missing values = 0")),
                    #Action button for replacing missing data with selected button
                    actionButton("missing_data", "Replace Missing Data"),
+                   #button for normalizing data to a selected metabolite
+                   actionButton("normalize", "Normalize Data"),
                    #Control charts
                    tags$h4(style = "text-decoration: underline;", "Generate Control Charts"),
                    selectInput("selected_metabolite", "Select Metabolite", choices = NULL),
@@ -411,13 +411,15 @@ ui <- dashboardPage(
                               tags$h4(style = "text-decoration: underline;", "Control chart for normalized data"),
                               plotlyOutput("control_chart_processed")),
                       #Analyzing variance (CVs and PCAs) 
-                      tabPanel("Variance assessment",
+                      tabPanel("Data Quality & Variability",
                                
                               fluidRow(
                                 column(3,
                                        
-                                      textInput("category_input", "Specify QC identifier (e.g., QC=QC)", value = "QC=QC"),
-                                      textInput("exclude_ids", "Exclude PBM Sample IDs (comma-separated)", ""),
+                                      textInput("category_input", "Specify QC identifier (e.g., QC=NIST)", value = "QC="),
+                                      HTML("<p><strong>Note:</strong> Case sensitive. Identifier must match label in connected metadata.<p>"),
+                                      textInput("exclude_ids", "Exclude PBM Sample IDs (e.g., SP1,SP2,Blank)", ""),
+                                      HTML("<p><strong>Note:</strong> This allows you to exclude samples from your CV and PCA assessment. Exclusions are case sensitive and comma-separated.<p>"),
                                       actionButton("compute_cv", "Calculate CVs"),
                             
                                       tags$h4(style = "text-decoration: underline;", "Average CVs (%)"),

@@ -4191,6 +4191,22 @@ server <- function(input, output, session){
   })
   
   
+  ######5.8 Display Data######
+  #Display data
+  output$peak_area_table <- renderDT({
+    datatable(peak_areas_data(), extensions = c('FixedColumns', 'Scroller'), options = list(
+      scrollX = TRUE,
+      scrollY = "400px",
+      scrollCollapse = TRUE,
+      scroller = TRUE,
+      deferRender = TRUE,
+      paging = FALSE,
+      pageLength = 20,
+      lengthMenu = c(20, 50, 100, "All"),
+      fixedColumns = list(leftColumns = 4)  
+    ))
+  })
+  
   ####6. Reporting####
   #Create reactive variable for storing the Matrix to display it.
   MetaboloMatrix <- reactiveVal(NULL)

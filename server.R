@@ -4194,12 +4194,10 @@ server <- function(input, output, session){
   ######5.8 Display Data######
   #Display data
   output$peak_area_table <- renderDT({
-    datatable(peak_areas_data(), extensions = c('FixedColumns', 'Scroller'), options = list(
+    datatable(peak_areas_data(), extensions = 'FixedColumns', options = list(
       scrollX = TRUE,
       scrollY = "400px",
       scrollCollapse = TRUE,
-      scroller = TRUE,
-      deferRender = TRUE,
       paging = FALSE,
       pageLength = 20,
       lengthMenu = c(20, 50, 100, "All"),
@@ -4211,7 +4209,7 @@ server <- function(input, output, session){
   #Create reactive variable for storing the Matrix to display it.
   MetaboloMatrix <- reactiveVal(NULL)
   
-  #####6.1 Generating Data Matrix for Metaboloanalyst##### 
+  #####6.1 Generating Data Matrix for MetaboAnalyst##### 
   observeEvent(input$generate_matrix, {
     
     #Initialize environment
@@ -4261,7 +4259,7 @@ server <- function(input, output, session){
     #Save Data
     MetaboloMatrix(transposed_df)
     tryCatch({
-      write.table(transposed_df, file.path(results_path, "Metaboloanalyst_matrix.csv"), row.names = TRUE, col.names = FALSE, sep = ",", fileEncoding = "UTF-8")
+      write.table(transposed_df, file.path(results_path, "Metaboanalyst_matrix.csv"), row.names = TRUE, col.names = FALSE, sep = ",", fileEncoding = "UTF-8")
       showNotification("Matrix Made", type = "message")
     }, error = function(e) {
       showNotification("Failed to save matrix: " + e$message, type = "error")

@@ -3966,6 +3966,7 @@ server <- function(input, output, session){
     selected_metabolite <- input$selected_metabolite
     results_path <- main_folder()
     files <- grab_metabolite_files(results_path)
+    
     #Load basic raw matrix. This data wont have any correction for missing values or anything normalized
     raw_peak_areas <- files$peak_areas
     
@@ -4056,7 +4057,6 @@ server <- function(input, output, session){
     return(pca_result)
   }
   
-  
   #PCA expression
   pca_data <- reactive({
     data <- peak_areas_data()
@@ -4071,7 +4071,7 @@ server <- function(input, output, session){
   average_cv <- reactive({
     data <- peak_areas_data()
     
-    # Ensure column name exists
+    #Ensure column name exists
     if (!"PBM Sample ID" %in% colnames(data)) {
       showNotification("Column 'PBM Sample ID' not found in data. Please connect metadata to results", type = "error")
       return()
@@ -4109,8 +4109,7 @@ server <- function(input, output, session){
     #Check if peak_areas_data() is NULL
     if (is.null(peak_areas_data())) {
       showNotification("No data uploaded. Please upload data before proceeding.", type = "error")
-      return()
-    }
+      return()}
     
     avg_cv <- average_cv()
     
@@ -4147,9 +4146,11 @@ server <- function(input, output, session){
       pca_data <- data.frame(avg_cv$pca_result$ind$coord)
       pca_data$SampleType <- rep(c("QC", "Non-QC"), c(nrow(qc_samples), nrow(non_qc_samples)))
       variance_explained <- avg_cv$pca_result$eig[1:2, 2]
+      results_path <- main_folder()
+      data_folder <- file.path(results_path, "Data")
       
       #Generate plot 
-      ggplot(pca_data, aes(x = Dim.1, y = Dim.2, color = SampleType)) +
+      pca_plot <- ggplot(pca_data, aes(x = Dim.1, y = Dim.2, color = SampleType)) +
         geom_point() +
         stat_ellipse() +
         scale_color_manual(values = c("QC" = "#38A700", "Non-QC" = "#780116")) +
@@ -4170,6 +4171,13 @@ server <- function(input, output, session){
           x = paste0("PC1 (", round(variance_explained[1], 2), "%)"),
           y = paste0("PC2 (", round(variance_explained[2], 2), "%)"), colour = "Sample Type"
         )
+      
+      # Save the plot
+      ggsave(file.path(data_folder, "QC_PCA_plot.png"), plot = pca_plot, width = 9, height = 6, dpi = 300)
+      
+      # Display the plot
+      pca_plot
+      
     })
   })
   
@@ -4200,8 +4208,6 @@ server <- function(input, output, session){
       kv <- strsplit(x, "=")[[1]]
       setNames(trimws(gsub("'", "", kv[2])), trimws(kv[1]))
     }, USE.NAMES = FALSE)
-    
-  
     
     #Create CLASS row based on dynamic criteria specified by text input. Allows for dynamic categorizers
     class_row <- sapply(1:ncol(transposed_df), function(i) {

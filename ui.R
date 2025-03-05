@@ -450,13 +450,13 @@ ui <- dashboardPage(
         tabName = "reporting",
         fluidRow(
           column(3,
-                 tags$h4(style = "text-decoration: underline;", "Generate Matrix for MetaboloAnalyst"),
-                 actionButton("generate_matrix","Generate Data Matrix for Metaboloanalyst"),
-                 textAreaInput("category_input", "Specify classes for Metaboloanalyst matrix", rows = 5),
+                 tags$h4(style = "text-decoration: underline;", "Generate Matrix for MetaboAnalyst"),
+                 actionButton("generate_matrix","Generate Data Matrix for MetaboAnalyst"),
+                 textAreaInput("category_input", "Specify classes for MetaboAnalyst matrix", rows = 5),
                  HTML("<p><strong>Note:</strong> Class assignments for your matrix can be both specific and/or generic. Specific class assignments include assignments such as 'SP1 = Standard1', 'SP2 = Standard2', and 'NIST = SRM30061'. Generic assignments would include assignments such as assigning all numeric values to Positive_Samples such as 'Numeric = Positive_Samples'.<br><br>An example of a set of class assignments would be: 'SP1=Standard1,SP2 =Standard2, NIST = SRM361, Numeric=Pos_Sample' <br><br>Unassigned sample classes are left blank. Class names are case sensitive, and multiple class specifications are separated by a comma. Class names must be one word (no spaces)</p>")
           ),
           column(9,
-                 tags$h4(style = "text-decoration: underline;", "MetaboloAnalyst Matrix"),
+                 tags$h4(style = "text-decoration: underline;", "MetaboAnalyst Matrix"),
                  dataTableOutput("matrix_table")
                 )
               )

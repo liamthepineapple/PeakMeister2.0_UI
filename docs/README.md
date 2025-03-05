@@ -50,8 +50,7 @@ Where
 
 1. $MT_{Metabolite}$ is the predicted migration time of the metabolite
 
-This app would not be possible without <div> @helmeczi_software_2024, @deutsch_file_2012, and @wilhelm_mz5_2011 </div>
-
+This app would not be possible without @helmeczi_software_2024, @deutsch_file_2012, and @wilhelm_mz5_2011 
 ### **How to use**
 ***
 PeakMeister2.0-UI includes the use of a graphical user interface (GUI) run by shiny intended to be used with zero knowledge of code. This requires the user to have [R](https://www.r-project.org/) and [R studio](https://posit.co/download/rstudio-desktop/) installed. PeakMeister2.0 UI requires [R version 4.2](https://mirror.csclub.uwaterloo.ca/CRAN/) or [R version 4.3](https://mirror.csclub.uwaterloo.ca/CRAN/). Due to outdated packages, PeakMeister2.0_UI will not work on R version 4.4.

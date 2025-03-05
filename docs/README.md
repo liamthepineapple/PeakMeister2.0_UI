@@ -50,7 +50,7 @@ Where
 
 1. $MT_{Metabolite}$ is the predicted migration time of the metabolite
 
-This app would not be possible without the following literature: [@helmeczi_software_2024], [@deutsch_file_2012], and [@wilhelm_mz5_2011]
+This app would not be possible without <div> @helmeczi_software_2024, @deutsch_file_2012, and @wilhelm_mz5_2011 </div>
 
 ### **How to use**
 ***

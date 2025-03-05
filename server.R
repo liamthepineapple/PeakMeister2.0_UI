@@ -3802,8 +3802,19 @@ server <- function(input, output, session){
     
     #Load data
     metadata <- read.csv(metadata_path, check.names = FALSE)
-    # files <- grab_metabolite_files(results_path)
     area <- peak_areas_data()
+    
+    #Check if metadata is NULL or empty 
+    if (is.null(metadata) || nrow(metadata) == 0) {
+      showNotification("No metadata uploaded. Please upload data before proceeding.", type = "error")
+      return()
+    }
+    
+    #Check if data is NULL or empty 
+    if (is.null(area) || nrow(area) == 0) {
+      showNotification("No data uploaded. Please upload data before proceeding.", type = "error")
+      return()
+    }
     
     #identify peak columns in metadata file. Designed to by dynamic with changing peak numbers
     peak_columns <- grep("^[0-9]+$", names(metadata), value = TRUE)
@@ -3860,8 +3871,14 @@ server <- function(input, output, session){
     #Load data and initialize the environment youre working in.
     name_vec <- c(refMassListData()$name, massData()$name)
     results_folder2 <- main_folder()
-    # files <- grab_metabolite_files(results_folder2)
     area <- peak_areas_data()
+    
+    #Check if data is NULL or empty to prevent crashing 
+    if (is.null(area) || nrow(area) == 0) {
+      showNotification("No data uploaded. Please upload data before proceeding.", type = "error")
+      return()
+    }
+    
     
     #Function for normalizing peak areas
     normalize_peak_areas <- function(data, normalize_by) {
@@ -3899,11 +3916,14 @@ server <- function(input, output, session){
     
     #Intialize environment, define variables
     results_folder2 <- main_folder()
-    
-    # files <- grab_metabolite_files(input$results_folder2)
     data <- peak_areas_data()
-    
     name_vec <- c(refMassListData()$name, massData()$name)
+    
+    #Check if data is NULL or empty to prevent crashing 
+    if (is.null(data) || nrow(data) == 0) {
+      showNotification("No data uploaded. Please upload data before proceeding.", type = "error")
+      return()
+    }
     
     #Convert non-numeric values to NA
     data <- data %>%
@@ -4051,17 +4071,18 @@ server <- function(input, output, session){
   average_cv <- reactive({
     data <- peak_areas_data()
     
+    # Ensure column name exists
+    if (!"PBM Sample ID" %in% colnames(data)) {
+      showNotification("Column 'PBM Sample ID' not found in data. Please connect metadata to results", type = "error")
+      return()
+    }
+    
     #Extract user specified dynamic categories
     user_categories <- strsplit(input$category_input, ",")[[1]]
     user_categories <- sapply(user_categories, function(x) {
       kv <- strsplit(x, "=")[[1]]
       setNames(trimws(gsub("'", "", kv[2])), trimws(kv[1]))
     }, USE.NAMES = FALSE)
-    
-    #Ensure column name exists
-    if (!"PBM Sample ID" %in% colnames(data)) {
-      stop("Column 'PBM Sample ID' not found in data")
-    }
     
     #Exclude specific sample IDs from CV analysis.
     exclude_ids <- strsplit(input$exclude_ids, ",")[[1]]
@@ -4084,6 +4105,13 @@ server <- function(input, output, session){
   ######5.7.4 Output for CV processing###### 
   observeEvent(input$compute_cv, {
     #######5.7.2.1 CV plot#######
+    
+    #Check if peak_areas_data() is NULL
+    if (is.null(peak_areas_data())) {
+      showNotification("No data uploaded. Please upload data before proceeding.", type = "error")
+      return()
+    }
+    
     avg_cv <- average_cv()
     
     #Create a data frame for the average CV values

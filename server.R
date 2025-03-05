@@ -3986,10 +3986,11 @@ server <- function(input, output, session){
                legend = list(orientation = 'h', x = 0.5, xanchor = 'center', y = -0.2), 
                font = list(family = "sans-serif"))
     })
+    showNotification("Control Chart Generated", type = "message")
   })
   
   
-  ######5.6.2 Control Charts for Non-normalized data######
+  ######5.6.2 Control Charts for normalized data######
   observeEvent(input$create_control_chart, {
     req(input$selected_metabolite)
     
@@ -4098,7 +4099,7 @@ server <- function(input, output, session){
     #Combine QC and non-QC samples for PCA and store values
     combined_data <- rbind(qc_samples, non_qc_samples)
     pca_result <- perform_pca(combined_data[, 4:ncol(combined_data)])
-    list(qc_cv = mean(qc_cv), non_qc_cv = mean(non_qc_cv), non_qc_cv_values = non_qc_cv, pca_result = pca_result, qc_samples = qc_samples, non_qc_samples = non_qc_samples)
+    list(qc_cv = mean(qc_cv), non_qc_cv = mean(non_qc_cv), non_qc_cv_values = non_qc_cv, pca_result = pca_result, qc_samples = qc_samples, non_qc_samples = non_qc_samples, qc_cv_values = qc_cv)
   })
   
   
@@ -4114,6 +4115,7 @@ server <- function(input, output, session){
     avg_cv <- average_cv()
     
     median_cv <- median(avg_cv$non_qc_cv_values, na.rm = TRUE)
+    median_qc_cv <- median(avg_cv$qc_cv_values, na.rm = TRUE)
     
     #Create a data frame for the average CV values
     cv_table <- data.frame(
@@ -4133,9 +4135,11 @@ server <- function(input, output, session){
     
     #Create the plot
     output$cv_plot <- renderPlotly({
-      plot_ly(plot_data, x = ~mz, y = ~cv, type = 'scatter', mode = 'lines+markers', text = ~name, hoverinfo = 'text+x+y', name = 'Metabolite CV') %>%
-        add_trace(x = ~mz, y = rep(median_cv, length(plot_data$mz)), type = 'scatter', mode = 'lines', line = list(dash = 'dash', color = 'black'), name = 'Median CV') %>%
-        layout(title = "CV per Metabolite (Non-QC Samples)",
+      plot_ly(plot_data, x = ~mz, y = ~cv, type = 'scatter', mode = 'lines+markers', text = ~name, hoverinfo = 'text+x+y', name = 'Non-QC CV') %>%
+        add_trace(x = ~mz, y = rep(median_cv, length(plot_data$mz)), type = 'scatter', mode = 'lines', line = list(dash = 'dash', color = 'black'), name = 'Median Non-QC CV') %>%
+        add_trace(x = ~mz, y = avg_cv$qc_cv_values, type = 'scatter', mode = 'lines+markers', marker = list(color = '#780116'), line = list(color = '#780116'), name = 'QC CV') %>%
+        add_trace(x = ~mz, y = rep(median_qc_cv, length(plot_data$mz)), type = 'scatter', mode = 'lines', line = list(dash = 'dash', color = 'green'), name = 'Median QC CV') %>%
+        layout(title = "CV per Metabolite (QC and non-QC samples)",
                xaxis = list(title = "m/z"),
                yaxis = list(title = "CV (%)"),
                legend = list(orientation = 'h', x = 0.5, xanchor = 'center', y = -0.2))

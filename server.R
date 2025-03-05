@@ -3785,8 +3785,107 @@ server <- function(input, output, session){
   })
   
   
-  #####5.3 Connect Peak Position with Metadata##### 
-
+  #####5.3 Normalize to Creatine, F-Phe, or Cl-Tyr#####
+  #Show modal for normalization options
+  observeEvent(input$normalize, {
+    showModal(modalDialog(
+      title = "Normalization Options",
+      selectInput("normalize_by", "Normalize By", choices = c("114.0667_Creatinine", "184.0774_F-Phe", "216.0427_Cl-Tyr")),
+      footer = tagList(
+        modalButton("Cancel"),
+        actionButton("confirm_normalize", "Normalize")
+      ),
+      easyClose = TRUE
+    ))
+  })
+  
+  #Event handler for normalizing the data.
+  observeEvent(input$confirm_normalize, {
+    removeModal()
+    
+    #Load data and initialize the environment youre working in.
+    name_vec <- c(refMassListData()$name, massData()$name)
+    results_folder2 <- main_folder()
+    area <- peak_areas_data()
+    
+    #Check if data is NULL or empty to prevent crashing 
+    if (is.null(area) || nrow(area) == 0) {
+      showNotification("No data uploaded. Please upload data before proceeding.", type = "error")
+      return()
+    }
+    
+    #Function for normalizing peak areas
+    normalize_peak_areas <- function(data, normalize_by) {
+      if (!(normalize_by %in% name_vec)) {
+        showNotification("Selected normalization metabolite not found in data columns.", type = "error")
+        return(data)}
+      
+      #Convert non-numeric values to NA and ensure all columns are now numeric
+      data <- data %>%
+        mutate(across(all_of(name_vec), ~ suppressWarnings(ifelse(grepl("^[0-9.]+$", .), as.numeric(.), NA_real_))))
+      if (all(is.na(data[[normalize_by]]))) {
+        showNotification("Normalization column does not contain any numeric values.", type = "error")
+        return(data)}
+      
+      #Normalize each row by the corresponding area for the metabolite you are using to normalize.
+      data <- data %>%
+        rowwise() %>%
+        mutate(across(all_of(name_vec), ~ ifelse(!is.na(.data[[normalize_by]]) & !is.na(.), . / .data[[normalize_by]], .)))
+      return(data)
+    }
+    
+    #Apply function to data
+    normalized_data <- normalize_peak_areas(area, input$normalize_by)
+    
+    #Update reactive data
+    peak_areas_data(normalized_data)
+     
+    #Save normalized data to a new CSV file so original datafile is preserved
+    write.csv(normalized_data, file.path(results_folder2, "Normalized Metabolite Peak Areas.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+    showNotification("Data successfully normalized", type = "message")
+  })
+  
+  
+  #####5.4 Replacing missing values in data#####
+  observeEvent(input$missing_data, {
+    
+    #Intialize environment, define variables
+    results_folder2 <- main_folder()
+    data <- peak_areas_data()
+    name_vec <- c(refMassListData()$name, massData()$name)
+    
+    #Check if data is NULL or empty to prevent crashing 
+    if (is.null(data) || nrow(data) == 0) {
+      showNotification("No data uploaded. Please upload data before proceeding.", type = "error")
+      return()
+    }
+    
+    #Convert non-numeric values to NA
+    data <- data %>%
+      mutate(across(all_of(name_vec), ~ suppressWarnings(ifelse(grepl("^[0-9.]+$", .), as.numeric(.), NA_real_))))
+    
+    #Replace missing values with the minimum/five
+    if (input$missing_data_method == "Minimum Values/5") {
+      for (col in name_vec) {
+        min_value <- min(data[[col]], na.rm = TRUE) / 5
+        data[[col]][is.na(data[[col]])] <- min_value}
+    } 
+    
+    #Replace missing values values with 0
+    else if (input$missing_data_method == "Missing values = 0") {
+      data[is.na(data)] <- 0}
+    
+    #Update reactive data
+    peak_areas_data(data)
+    
+    #Save to a .CSV file
+    write.csv(data, file.path(results_folder2, "Corrected Missing Values Metabolite Peak Areas.csv"), row.names = FALSE, fileEncoding = "UTF-8")
+    showNotification("Data successfully corrected", type = "message")
+  })
+  
+  
+  #####5.5 Connect Peak Position with Metadata##### 
+  
   #Observe action button for connecting metadata
   observeEvent(input$connect_metadata, {
     results_path <- main_folder()
@@ -3842,110 +3941,12 @@ server <- function(input, output, session){
     
     #Trim any leading or trailing whitespace (found in some of the metadata files for unknown resason)
     merged_data$`PBM Sample ID` <- trimws(merged_data$`PBM Sample ID`, whitespace = "[\\h\\v]")
-  
+    
     #Add merged data to reactive data file and save it to a .CSV
     peak_areas_data(merged_data)
     
     write.csv(merged_data, file.path(results_path, "merged_peak_area.csv"), row.names = FALSE, fileEncoding = "UTF-8")
     showNotification("Metadata succesffuly connected to peak areas", type = "message")
-  })
-  
-  #####5.4 Normalize to Creatine, F-Phe, or Cl-Tyr#####
-  
-  observeEvent(input$normalize, {
-    showModal(modalDialog(
-      title = "Normalization Options",
-      selectInput("normalize_by", "Normalize By", choices = c("114.0667_Creatinine", "184.0774_F-Phe", "216.0427_Cl-Tyr")),
-      footer = tagList(
-        modalButton("Cancel"),
-        actionButton("confirm_normalize", "Normalize")
-      ),
-      easyClose = TRUE
-    ))
-  })
-  
-  #Event handler for normalizing the data.
-  observeEvent(input$confirm_normalize, {
-    removeModal()
-    
-    #Load data and initialize the environment youre working in.
-    name_vec <- c(refMassListData()$name, massData()$name)
-    results_folder2 <- main_folder()
-    area <- peak_areas_data()
-    
-    #Check if data is NULL or empty to prevent crashing 
-    if (is.null(area) || nrow(area) == 0) {
-      showNotification("No data uploaded. Please upload data before proceeding.", type = "error")
-      return()
-    }
-    
-    
-    #Function for normalizing peak areas
-    normalize_peak_areas <- function(data, normalize_by) {
-      if (!(normalize_by %in% name_vec)) {
-        showNotification("Selected normalization metabolite not found in data columns.", type = "error")
-        return(data)}
-      
-      #Convert non-numeric values to NA and ensure all columns are now numeric
-      data <- data %>%
-        mutate(across(all_of(name_vec), ~ suppressWarnings(ifelse(grepl("^[0-9.]+$", .), as.numeric(.), NA_real_))))
-      if (all(is.na(data[[normalize_by]]))) {
-        showNotification("Normalization column does not contain any numeric values.", type = "error")
-        return(data)}
-      
-      #Normalize each row by the corresponding area for the metabolite you are using to normalize.
-      data <- data %>%
-        rowwise() %>%
-        mutate(across(all_of(name_vec), ~ ifelse(!is.na(.data[[normalize_by]]) & !is.na(.), . / .data[[normalize_by]], .)))
-      return(data)
-    }
-    
-    #Apply function to data
-    normalized_data <- normalize_peak_areas(area, input$normalize_by)
-    
-    #Update reactive data
-    peak_areas_data(normalized_data)
-     
-    #Save normalized data to a new CSV file so original datafile is preserved
-    write.csv(normalized_data, file.path(results_folder2, "Normalized Metabolite Peak Areas.csv"), row.names = FALSE, fileEncoding = "UTF-8")
-    showNotification("Data successfully normalized", type = "message")
-  })
-  
-  #####5.5 Replacing missing values in data#####
-  observeEvent(input$missing_data, {
-    
-    #Intialize environment, define variables
-    results_folder2 <- main_folder()
-    data <- peak_areas_data()
-    name_vec <- c(refMassListData()$name, massData()$name)
-    
-    #Check if data is NULL or empty to prevent crashing 
-    if (is.null(data) || nrow(data) == 0) {
-      showNotification("No data uploaded. Please upload data before proceeding.", type = "error")
-      return()
-    }
-    
-    #Convert non-numeric values to NA
-    data <- data %>%
-      mutate(across(all_of(name_vec), ~ suppressWarnings(ifelse(grepl("^[0-9.]+$", .), as.numeric(.), NA_real_))))
-    
-    #Replace missing values with the minimum/five
-    if (input$missing_data_method == "Minimum Values/5") {
-      for (col in name_vec) {
-        min_value <- min(data[[col]], na.rm = TRUE) / 5
-        data[[col]][is.na(data[[col]])] <- min_value}
-    } 
-    
-    #Replace missing values values with 0
-    else if (input$missing_data_method == "Missing values = 0") {
-      data[is.na(data)] <- 0}
-    
-    #Update reactive data
-    peak_areas_data(data)
-    
-    #Save to a .CSV file
-    write.csv(data, file.path(results_folder2, "Corrected Missing Values Metabolite Peak Areas.csv"), row.names = FALSE, fileEncoding = "UTF-8")
-    showNotification("Data successfully corrected", type = "message")
   })
   
   

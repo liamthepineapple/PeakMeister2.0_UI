@@ -417,7 +417,7 @@ ui <- dashboardPage(
                                 column(3,
                                        
                                       textInput("category_input", "Specify QC identifier (e.g., QC=NIST)", value = "QC="),
-                                      HTML("<p><strong>Note:</strong> Case sensitive. Identifier must match label in connected metadata.<p>"),
+                                      HTML("<p><strong>Note:</strong> Identifier must match label in metadata.<p>"),
                                       textInput("exclude_ids", "Exclude PBM Sample IDs (e.g., SP1,SP2,Blank)", ""),
                                       HTML("<p><strong>Note:</strong> This allows you to exclude samples from your CV and PCA assessment. Exclusions are case sensitive and comma-separated.<p>"),
                                       actionButton("compute_cv", "Calculate CVs"),
@@ -435,6 +435,10 @@ ui <- dashboardPage(
                                       plotlyOutput("cv_plot")
                         )
                       )
+                    ),
+                      tabPanel("Metadata",
+                               tags$h4(style = "text-decoration: underline;", "Peak Area Datatable"),
+                             DTOutput("peak_area_table")
                     )
                   )
                 )

@@ -350,8 +350,10 @@ ui <- dashboardPage(
                        
                        tabPanel("Dual EIE View",
                                 tags$h4(style = "text-decoration: underline;", "Combined Electropherograms"),
+                                #Output for combined electropherograms
                                 plotlyOutput("combined_plot", height = "600px"),
                                 tags$h4(style = "text-decoration: underline;", "Select Plots to Compare"),
+                                #Datatables for selecting plots for the combvined electropherograms
                                 column(6,
                                 DTOutput("plottable1")),
                                 column(6,
@@ -398,41 +400,44 @@ ui <- dashboardPage(
             ),
             column(9,
                    tabsetPanel(
-                   tabPanel("m/z vs Migration Time", 
+                     #Plotting m/z versus migration time
+                      tabPanel("m/z vs Migration Time",
                             plotlyOutput("mz_vs_migration_plot", height = "600px")),
-                   tabPanel("Control Charts",
-                            tags$h4(style = "text-decoration: underline;", "Control chart for non-normalized data"),
-                            plotlyOutput("control_chart_raw"),
-                            tags$h4(style = "text-decoration: underline;", "Control chart for normalized data"),
-                            plotlyOutput("control_chart_processed")
-                            ),
-                   tabPanel("CVs",
-                            fluidRow(
-                            column(3,
-                            textInput("category_input", "Specify QC identifier (e.g., QC=QC)", value = "QC=QC"),
-                            textInput("exclude_ids", "Exclude PBM Sample IDs (comma-separated)", ""),
-                            actionButton("compute_cv", "Calculate CVs"),
+                      #Generating and plotting control charts
+                      tabPanel("Control Charts",
+                               
+                              tags$h4(style = "text-decoration: underline;", "Control chart for non-normalized data"),
+                              plotlyOutput("control_chart_raw"),
+                              tags$h4(style = "text-decoration: underline;", "Control chart for normalized data"),
+                              plotlyOutput("control_chart_processed")),
+                      #Analyzing variance (CVs and PCAs) 
+                      tabPanel("Variance assessment",
+                               
+                              fluidRow(
+                                column(3,
+                                       
+                                      textInput("category_input", "Specify QC identifier (e.g., QC=QC)", value = "QC=QC"),
+                                      textInput("exclude_ids", "Exclude PBM Sample IDs (comma-separated)", ""),
+                                      actionButton("compute_cv", "Calculate CVs"),
                             
-                            tags$h4(style = "text-decoration: underline;", "Average CVs (%)"),
-                            tableOutput("average_cv_table")
-                            
-                            ),
-                            column(9,
-                                   plotOutput("pca_plot")
-                                  )
-                                ),
-                            fluidRow(
-                              column(12,
-                                     tags$h4(style = "text-decoration: underline;", "CV based on m/z of metabolite"),
-                                    #Add plot output for the CV plot
-                                    plotlyOutput("cv_plot")
-                              )
-                            )
-                          )
-                   )
-            )
-          )
-        ),
+                                      tags$h4(style = "text-decoration: underline;", "Average CVs (%)"),
+                                      tableOutput("average_cv_table")),
+                                
+                                column(9,
+                                      plotOutput("pca_plot")
+                                      )
+                                    ),
+                              fluidRow(
+                                column(12,
+                                      tags$h4(style = "text-decoration: underline;", "CV based on m/z of metabolite"),
+                                      plotlyOutput("cv_plot")
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            ),
       
       ####8. Reporting Tab####
       tabItem(
@@ -447,11 +452,10 @@ ui <- dashboardPage(
           column(9,
                  tags$h4(style = "text-decoration: underline;", "MetaboloAnalyst Matrix"),
                  dataTableOutput("matrix_table")
-          )
-        )
-      )
-      
-      ),
+                )
+              )
+            )
+          ),
     #Display logo at bottom right of page 
     tags$div(
       style = "position: absolute; bottom: 10px; right: 10px;",

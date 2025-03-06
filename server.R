@@ -3982,7 +3982,7 @@ server <- function(input, output, session){
         add_lines(x = seq_along(raw_metabolite_areas), y = mean(raw_metabolite_areas) + 3 * sd(raw_metabolite_areas), line = list(color = 'black', dash = 'dash'), name = 'Upper Control Limit') %>%
         add_lines(x = seq_along(raw_metabolite_areas), y = mean(raw_metabolite_areas) - 3 * sd(raw_metabolite_areas), line = list(color = 'black', dash = 'dash'), name = 'Lower Control Limit') %>%
         layout(title = paste("Control Chart for", selected_metabolite, "(Raw Data)"),
-               xaxis = list(title = "Sample", showgrid =FALSE, dtick = 2),
+               xaxis = list(title = "Sample", showgrid =FALSE, dtick = 5),
                yaxis = list(title = "Peak Area", showgrid =FALSE),
                legend = list(orientation = 'h', x = 0.5, xanchor = 'center', y = -0.2), 
                font = list(family = "sans-serif"))
@@ -4008,7 +4008,7 @@ server <- function(input, output, session){
         add_lines(x = seq_along(metabolite_data), y = mean(metabolite_data) + 3 * sd(metabolite_data), line = list(color = 'black', dash = 'dash'), name = 'Upper Control Limit') %>%
         add_lines(x = seq_along(metabolite_data), y = mean(metabolite_data) - 3 * sd(metabolite_data), line = list(color = 'black', dash = 'dash'), name = 'Lower Control Limit') %>%
         layout(title = paste("Control Chart for", selected_metabolite, "(Processed Data)"),
-               xaxis = list(title = "Sample", showgrid =FALSE, dtick = 2),
+               xaxis = list(title = "Sample", showgrid =FALSE, dtick = 5),
                yaxis = list(title = "Peak Area", showgrid =FALSE),
                legend = list(orientation = 'h', x = 0.5, xanchor = 'center', y = -0.2),
                font = list(family = "sans-serif"))

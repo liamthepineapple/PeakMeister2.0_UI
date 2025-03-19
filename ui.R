@@ -342,6 +342,8 @@ ui <- dashboardPage(
                        actionButton("adjust_all_baselines", "Adjust All Baselines"),
                        #Action button for regenerating plots
                        actionButton("regenerateplots", "Regenerate Changed Plots"),
+                       #Action button for deleting all but the first and last peaks.
+                       actionButton("deletemiddlepeaks","Delete Middle Peaks (Keeps first and last)"),
                        
                        #Data table for peak positions
                        tags$h4(style = "text-decoration: underline;", "Peak Position Information"),

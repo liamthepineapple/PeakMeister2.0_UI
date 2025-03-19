@@ -2387,12 +2387,14 @@ server <- function(input, output, session){
   )
   
   # Reactive expression to store the path to the selected results folder. Required to grab the correct annotation_data information from the subsequent runs and useful for processing data if you have closed the app.
+  main_folder <- reactive({
+    req(input$results_folder)
+    input$results_folder
+
+  })
+  
+  # Reactive expression to store the path to the selected results folder
   plot_list_data <- reactive({
-    main_folder <- reactive({
-      req(input$results_folder)
-      input$results_folder
-    })
-    
     req(main_folder(), input$file_selector)
     file_name <- input$file_selector
     subfolder_path <- file.path(main_folder(), "Data", file_name)
@@ -2530,12 +2532,6 @@ server <- function(input, output, session){
   
   #####4.4 Delete Peaks and Update Metadata#####
   ######4.4.1 Initialize environment, define reactive expressions, and define functions######
-  
-  # Define main_folder outside the reactive expression
-  main_folder <- reactive({
-    req(input$results_folder)
-    input$results_folder
-  })
   
   # Define reactive expression to load plot_list_data
   loaded_plot_list_data <- reactive({
@@ -2712,6 +2708,73 @@ server <- function(input, output, session){
       }
     }, options = list(pageLength = 13), selection = 'multiple')
 })
+  
+  ######4.4.3 Button for deleting all but the first and last peaks###### 
+  observeEvent(input$deletemiddlepeaks, {
+    req(input$plot_table_rows_selected)
+    
+    # Extract the current plot name
+    selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
+    base_file_name <- sub("\\.mz5$", "", input$file_selector)
+    plotname <- sub(paste0("^", base_file_name, "_"), "", selected_plot_name)
+    plot_list <- plot_list_data_values$plot_list
+    
+    if (plotname %in% names(plot_list)) {
+      annotation_data <- plot_list[[plotname]]$annotation_data
+      integration_data <- plot_list[[plotname]]$integration_data
+      
+      # Identify the first and last peak numbers
+      first_peak <- annotation_data$peak.number[1]
+      last_peak <- annotation_data$peak.number[nrow(annotation_data)]
+      
+      # Update the comment column for all peaks except the first and last
+      annotation_data$comment[-c(1, nrow(annotation_data))] <- "NPD"
+      
+      # Update comment_df so peak areas can be recalculated/reintegrated later on
+      if (plotname %in% colnames(plot_list_data_values$comment_df)) {
+        plot_list_data_values$comment_df[-c(first_peak, last_peak), plotname] <- "NPD"
+      }
+      
+      # Remove all integration_data associated with peaks except the first and last
+      integration_data <- integration_data[integration_data$peak.number %in% c(first_peak, last_peak), ]
+      
+      # Update the plot_list with the modified annotation_data
+      plot_list[[plotname]]$annotation_data <- annotation_data
+      plot_list[[plotname]]$integration_data <- integration_data
+      
+      # Update the reactive plot_list_data
+      plot_list_data_values$plot_list <- plot_list
+      
+      # Save changes
+      save_plot_data(plotname)
+      
+      # Reload the updated data
+      subfolder_path <- file.path(input$results_folder, "Data", run_metadata$file_name)
+      reload_plot_data(subfolder_path)
+      
+      # Update reactive values directly
+      plot_list_data_values$plot_list <- plot_list
+      plot_list_data_values$comment_df <- plot_list_data_values$comment_df
+      
+      # Update the peak_info_table
+      output$peak_info_table <- DT::renderDataTable({
+        req(input$plot_table_rows_selected)
+        selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
+        
+        base_file_name <- sub("\\.mz5$", "", input$file_selector)
+        plotname <- sub(paste0("^", base_file_name, "_"), "", selected_plot_name)
+        plot_list <- plot_list_data_values$plot_list
+        
+        # Ensure the plotname exists in the plot_list
+        if (plotname %in% names(plot_list)) {
+          annotation_data <- plot_list[[plotname]]$annotation_data
+          annotation_data
+        } else {
+          data.frame()
+        }
+      }, options = list(pageLength = 13), selection = 'multiple')
+    }
+  })
      
   #####4.5 Undo peak deletion#####
   observeEvent(input$undo, {
@@ -2960,8 +3023,6 @@ server <- function(input, output, session){
 
      # Get the list of modified plots
      modified_plots <- modified_peak_plots$names
-
-
 
      #Load data for plotting along with mi_df to determine which metabolites use MI and which use RMTs
      plot_list <- plot_list_data_values$plot_list
@@ -3707,7 +3768,7 @@ server <- function(input, output, session){
   })
   
   #Set results folder to work out of
-  main_folder <- reactive({
+  main_folder2 <- reactive({
       req(input$results_folder2)
       input$results_folder2
     })
@@ -3805,7 +3866,7 @@ server <- function(input, output, session){
     
     #Load data and initialize the environment youre working in.
     name_vec <- c(refMassListData()$name, massData()$name)
-    results_folder2 <- main_folder()
+    results_folder2 <- main_folder2()
     area <- peak_areas_data()
     
     #Check if data is NULL or empty to prevent crashing 
@@ -3850,7 +3911,7 @@ server <- function(input, output, session){
   observeEvent(input$missing_data, {
     
     #Intialize environment, define variables
-    results_folder2 <- main_folder()
+    results_folder2 <- main_folder2()
     data <- peak_areas_data()
     name_vec <- c(refMassListData()$name, massData()$name)
     
@@ -3888,7 +3949,7 @@ server <- function(input, output, session){
   
   #Observe action button for connecting metadata
   observeEvent(input$connect_metadata, {
-    results_path <- main_folder()
+    results_path <- main_folder2()
     data_folder <- file.path(results_path, "Data")
     
     #Look for path to metadata file
@@ -3965,7 +4026,7 @@ server <- function(input, output, session){
     
     #Initialize environment, load data, acquire names of selected metabolite for control chart
     selected_metabolite <- input$selected_metabolite
-    results_path <- main_folder()
+    results_path <- main_folder2()
     files <- grab_metabolite_files(results_path)
     
     #Load basic raw matrix. This data wont have any correction for missing values or anything normalized
@@ -4155,7 +4216,7 @@ server <- function(input, output, session){
       pca_data <- data.frame(avg_cv$pca_result$ind$coord)
       pca_data$SampleType <- rep(c("QC", "Non-QC"), c(nrow(qc_samples), nrow(non_qc_samples)))
       variance_explained <- avg_cv$pca_result$eig[1:2, 2]
-      results_path <- main_folder()
+      results_path <- main_folder2()
       data_folder <- file.path(results_path, "Data")
       
       #Generate plot 
@@ -4217,7 +4278,7 @@ server <- function(input, output, session){
     if (is.null(data) || nrow(data) == 0) {
       showNotification("No data available to generate matrix", type = "error")
       return(NULL)}
-    results_path <- main_folder()
+    results_path <- main_folder2()
     
     #Remove unnecessary columns, transpose the data, and acquire sampleIDs 
     data <- data[, !names(data) %in% c("peak.number", "file.name")]

@@ -3403,7 +3403,7 @@ server <- function(input, output, session){
      plot_list_data_values$peaks_df <- peaks_df
      
      #Mark the plot as modified
-     modified_peak_plots$names <- unique(c(modified_peak_plots$names, plotname))
+     modified_peak_plots$names <- unique(c(modified_peak_plots$names, selected_plot_name))
      
      #Save the updated peaks_df back to the plot_list_data.RData file
      save_plot_data(plotname)

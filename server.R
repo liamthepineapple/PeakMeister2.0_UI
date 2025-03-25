@@ -2902,6 +2902,9 @@ server <- function(input, output, session){
   
      extra_space <- ifelse(x_axis_data[1] > 70, 1, 0)
   
+     #Convert peak.number to factor
+     integration_data$peak.number <- as.factor(integration_data$peak.number)
+     
      ggplot(data = eie_data) +
       geom_line(aes(x = mt.seconds / 60, y = eie_data[,2]), colour = "grey50") +
        theme_classic() +
@@ -3076,12 +3079,9 @@ server <- function(input, output, session){
      
      #Save all plotly objects to a single .RData file
      save(plotly_objects, file = file.path(input$results_folder, "plotly_objects.RData"), compress = "xz")
-     
-     
-     
      print("Finished regenerating and compressing all plots!")
    }
-   
+
    ######4.6.4 Function for regenerating ggplots plots and saving them to specified locations######
    regenerate_ggplot <- function() {
      #Define plotting housekeeping variables
@@ -3111,7 +3111,7 @@ server <- function(input, output, session){
          if (plot_format == "Sample") {
            for (plotname in names(plot_list)) {
              
-             print(paste("Regenerating plot:", plotname))
+             print(paste("Regenerating plot:", plotname, "from file:", base_file_name))
              
              #Load plot data
              plot_data <- plot_list[[plotname]]

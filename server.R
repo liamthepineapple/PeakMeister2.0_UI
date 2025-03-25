@@ -2442,6 +2442,12 @@ server <- function(input, output, session){
     plotly_data(plotly_objects)
   })
   
+  #Reset uploaded data
+  observeEvent(input$resetplotlydata, {
+    plotly_data(NULL)
+  })
+  
+  
   #List all "Results" folders in the main directory
   list_results_folders <- function() {
     results_folders <- list.dirs(path = ".", full.names = TRUE, recursive = FALSE)

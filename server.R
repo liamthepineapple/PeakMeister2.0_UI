@@ -2638,7 +2638,7 @@ server <- function(input, output, session){
     plot_list <- plot_list_data_values$plot_list
     
     #Mark the plot as edited so only plots that have been edited can be regenerated later
-    modified_peak_plots$names <- unique(c(modified_peak_plots$names, plotname))
+    modified_peak_plots$names <- unique(c(modified_peak_plots$names, selected_plot_name))
     
     if (plotname %in% names(plot_list)) {
       annotation_data <- plot_list[[plotname]]$annotation_data
@@ -2720,7 +2720,7 @@ server <- function(input, output, session){
     plot_list <- plot_list_data_values$plot_list
     
     #Mark the plot as edited so only plots that have been edited can be regenerated later
-    modified_peak_plots$names <- unique(c(modified_peak_plots$names, plotname))
+    modified_peak_plots$names <- unique(c(modified_peak_plots$names, selected_plot_name))
     
     if (plotname %in% names(plot_list)) {
       annotation_data <- plot_list[[plotname]]$annotation_data
@@ -2790,7 +2790,7 @@ server <- function(input, output, session){
     plot_list <- plot_list_data_values$plot_list
     
     #Mark the plot as edited so only plots that have been edited can be regenerated later
-    modified_peak_plots$names <- unique(c(modified_peak_plots$names, plotname))
+    modified_peak_plots$names <- unique(c(modified_peak_plots$names, selected_plot_name))
     
     if (plotname %in% names(plot_list)) {
       annotation_data <- plot_list[[plotname]]$annotation_data
@@ -2935,7 +2935,6 @@ server <- function(input, output, session){
                      y = peak.height.counts + 0.2 * y_axis_data[1])) +
        theme(legend.position = "none",
              text = element_text(size = font_size_2, family = "sans"))
-  
    }
   
    #plotly function
@@ -3102,14 +3101,19 @@ server <- function(input, output, session){
          load(file.path(subfolder_path, "plot_list_data.RData"))
          
          #Load data for plotting along with mi_df to determine which metabolites use MI and which use RMTs
-         
          plot_list <- get("plot_list")
          mi_df <- get("mi_df")
+         
+         modified_plot_names <- sapply(modified_peak_plots$names, function(name) {
+           sub(paste0("^", base_file_name, "_"), "", name)
+         })
+         
+         modified_plots <- intersect(names(plot_list), modified_plot_names)
          
          
          #Regenerate plots according to "Sample" format
          if (plot_format == "Sample") {
-           for (plotname in names(plot_list)) {
+           for (plotname in modified_plots) {
              
              print(paste("Regenerating plot:", plotname, "from file:", base_file_name))
              
@@ -3216,17 +3220,20 @@ server <- function(input, output, session){
          #Regenerate plots according to "Metabolite" format
          if (plot_format == "Metabolite") {
            for (n in 1:length(name_vec)) {
-             folder <- name_vec[n]
-             ggsave(filename = paste(base_file_name, ".png", sep = ""),
-                    width = 16,
-                    height = 9,
-                    plot = plot_function(eie_data = plot_list[[n]]$eie_data,
-                                         annotation_data = plot_list[[n]]$annotation_data,
-                                         integration_data = plot_list[[n]]$integration_data,
-                                         label_data = plot_list[[n]]$label_data,
-                                         x_axis_data = plot_list[[n]]$x_axis_data,
-                                         y_axis_data = plot_list[[n]]$y_axis_data),
-                    path = paste(input$results_folder, "/Plots/", folder, "/", sep = ""))
+             plotname <- name_vec[n]
+             if (plotname %in% modified_plot_names) {
+               folder <- plotname
+               ggsave(filename = paste(base_file_name, ".png", sep = ""),
+                      width = 16,
+                      height = 9,
+                      plot = plot_function(eie_data = plot_list[[n]]$eie_data,
+                                           annotation_data = plot_list[[n]]$annotation_data,
+                                           integration_data = plot_list[[n]]$integration_data,
+                                           label_data = plot_list[[n]]$label_data,
+                                           x_axis_data = plot_list[[n]]$x_axis_data,
+                                           y_axis_data = plot_list[[n]]$y_axis_data),
+                      path = paste(input$results_folder, "/Plots/", folder, "/", sep = ""))
+             }
            }
          }
        }

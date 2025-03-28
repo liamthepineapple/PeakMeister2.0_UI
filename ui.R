@@ -6,7 +6,7 @@
 if (!require("pacman", quietly = TRUE)) install.packages("pacman")
 if (!require("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 
-pacman::p_load("shiny","shinyBS", "tools","waiter","shinyFiles","RColorBrewer","shinycssloaders", "shinydashboard", "DT", "shinyalert","ggplot2","ggpubr", "plotly","hash","pracma", "tidyverse", "stats", "DescTools", "xcms", "rlang","markdown", "openxlsx","readxl","writexl","fontawesome", "MSnbase", "mzR","shinyjs","FactoMineR", "factoextra",
+pacman::p_load("shiny","shinyBS", "tools","waiter","shinyFiles","RColorBrewer","shinycssloaders", "shinydashboard", "DT", "shinyalert","ggplot2","ggpubr", "plotly","hash","pracma", "tidyverse", "stats", "DescTools", "xcms", "rlang","markdown", "openxlsx","readxl","writexl","fontawesome", "MSnbase", "mzR","shinyjs","FactoMineR", "factoextra","jsonlite",
                install = TRUE)
 
 #Title of app
@@ -63,6 +63,21 @@ ui <- dashboardPage(
       "))
     ),useShinyjs(),
     use_waiter(),
+    tags$head(
+    tags$style(HTML("
+      .flower-spinner .dots-container .bigger-dot {
+        background-color: black;
+      }
+      .flower-spinner .dots-container .bigger-dot .smaller-dot {
+        background-color: black;
+      }
+      .flower-spinner .dots-container::before,
+      .flower-spinner .dots-container::after {
+        background-color: black;
+      }
+    "))
+  ),
+  
     tabItems(
       # About tab content
       tabItem(

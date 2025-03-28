@@ -3248,14 +3248,62 @@ server <- function(input, output, session){
 
 
    ######4.6.5 Applying functions######
+#Loading messages for loading screen
+   loading_messages <- c(
+     "Training squirrels to redraw plots...", 
+     "Bribing CE ghosts to cooperate...",
+     "Praying to the R gods that the code will work...",
+     "Plotting revenge against noisy data...",
+     "Summoning peak integration spirits...",
+     "Sacrificing the old plots for better results...",
+     "Convincing peaks they really do exist...",
+     "Making a blood sacrifice to the R gods...",
+     "Offering a peace treaty to signal noise...",
+     "Selling soul for a perfectly integrated peak...",
+     "Syncing plotting preferences with your Spotify...",
+     "Telling algorithm to 'just work'...",
+     "Praying the plots havent unionized...",
+     "Debugging... or just staring at the screen intensely...",
+     "Gaslighting peaks into aligning properly...",
+     "Performing an exorcism on the previous plots...",
+     "Pleading with the R gods for mercy...",
+     "Recalculating everything... again...",
+     "Casting a circle of salt around the data..."
+   )
+
   #Action button for regenerating plots
   observeEvent(input$regenerateplots, {
+    
+    #Initialize waiter loading screen
+    initial_message <- sample(loading_messages, 1)
+    waiter_show(
+      html = tagList(
+        spin_flower(),
+        h4(id = "loading-message", initial_message, style = "color:black;")
+      ),
+      color = "rgba(210,210,210,0.7)"
+    )
+    
+    #Java script for switching between different loading messages
+    js_script <- sprintf("
+    setTimeout(function() {
+      var messages = %s;
+      function updateMessage() {
+        var elem = document.getElementById('loading-message');
+        if (elem) {
+          var newMessage = messages[Math.floor(Math.random() * messages.length)];
+          elem.innerText = newMessage;
+        }
+      }
+      setInterval(updateMessage, 3000); // Update every 5 seconds
+    }, 1000);
+  ", jsonlite::toJSON(loading_messages, auto_unbox = TRUE))
+    runjs(js_script)
+    
+    #Apply plotting and area functions
     regenerate_plots()
-    
     print("Finished applying plotting function")
-    
     regenerate_metabolite_peak_areas()
-    
     print("Finished applying peak area function")
     
     #Check if required data is populated before running regenerate_ggplot
@@ -3265,8 +3313,10 @@ server <- function(input, output, session){
       regenerate_ggplot()
       showNotification("Successfully regenerated plots and updated metadata", type = "message")
     }
+    
     #Reset modified peaks table 
     modified_peak_plots$names <- character(0)
+    waiter_hide()
   })
   
   #Table to list modified plots that will be regenerated
@@ -3276,7 +3326,6 @@ server <- function(input, output, session){
   
   
   #####4.7 Adjusting integration and adding peaks#####
-  
   ######4.7.1 Function for manual peak number input######
   peak_input_modal <- function() {
     showModal(modalDialog(

@@ -4267,9 +4267,28 @@ server <- function(input, output, session){
   #Function to perform PCA with additional checks
   perform_pca <- function(data) {
     data <- remove_zero_variance(data)
-    if (any(is.infinite(data))) {
-      stop("Data contains infinite values.")
+    
+    #Check for missing or infinite values
+    if (any(is.na(data)) || any(is.infinite(data))) {
+      showNotification("Data contains missing or infinite values.", type = "error")
     }
+    #Identify columns with all missing or infinite values
+    cols_to_exclude <- which(apply(data, 2, function(x) all(is.na(x)) || all(is.infinite(x))))
+    
+    if (length(cols_to_exclude) > 0) {
+      excluded_cols <- colnames(data)[cols_to_exclude]
+      showNotification(paste("Excluding columns with all missing or infinite values:", paste(excluded_cols, collapse = ", ")), type = "warning")
+      data <- data[, -cols_to_exclude]
+    }
+    
+    # Check for any remaining missing or infinite values
+    if (any(is.na(data)) || any(is.infinite(data))) {
+      showNotification("Data still contains missing or infinite values. Filter failed. Please manually edit data.", type = "error")
+      return(NULL)
+    } else {
+      showNotification("Filtering successful.", type = "message")
+    }
+
     scaled_data <- pareto_scale(data)
     pca_result <- PCA(scaled_data, graph = FALSE)
     return(pca_result)
@@ -4309,6 +4328,40 @@ server <- function(input, output, session){
     
     qc_samples <- data %>% filter(grepl(user_categories[["QC"]], `PBM Sample ID`, ignore.case = TRUE))
     non_qc_samples <- data %>% filter(!grepl(user_categories[["QC"]], `PBM Sample ID`, ignore.case = TRUE))
+    #Deal with cases where columns contain all missing or all infinite samples. Occurs when there is ZERO detection of a metabolite in ANY sample which makes the data either all NAs or ALL infinite. Occurs rarely but will crash app if not handled correctly.
+    #Identify columns with all missing or infinite values in QC and non-QC samples
+    qc_exclusions <- which(apply(qc_samples[, 4:ncol(qc_samples)], 2, function(x) all(is.na(x)) || all(is.infinite(x))))
+    if (length(qc_exclusions) > 0) {
+      excluded_qc_cols <- colnames(qc_samples)[qc_exclusions + 3]
+      showNotification(paste("Excluding columns with all missing or infinite values in QC samples:", paste(excluded_qc_cols, collapse = ", ")), type = "warning", duration = 6)
+      qc_samples <- qc_samples[, -qc_exclusions - 3] 
+    }
+    
+    non_qc_exclusions <- which(apply(non_qc_samples[, 4:ncol(non_qc_samples)], 2, function(x) all(is.na(x)) || all(is.infinite(x))))
+    if (length(non_qc_exclusions) > 0) {
+      excluded_non_qc_cols <- colnames(non_qc_samples)[non_qc_exclusions + 3] 
+      showNotification(paste("Excluding columns with all missing or infinite values in non-QC samples:", paste(excluded_non_qc_cols, collapse = ", ")), type = "warning", duration = 6)
+      non_qc_samples <- non_qc_samples[, -non_qc_exclusions - 3] 
+    }
+    
+    #Ensure the remaining columns have the same number of rows
+    common_cols <- intersect(colnames(qc_samples), colnames(non_qc_samples))
+    qc_samples <- qc_samples[, common_cols]
+    non_qc_samples <- non_qc_samples[, common_cols]
+    
+    #Check for any remaining missing or infinite values in samples
+    if (any(sapply(qc_samples[, 4:ncol(qc_samples)], is.na)) || any(sapply(qc_samples[, 4:ncol(qc_samples)], is.infinite))) {
+      showNotification("QC samples still contain missing or infinite values. Filter failed. Please manually edit data.", type = "error")
+      return(NULL)
+    }
+    
+    if (any(sapply(non_qc_samples[, 4:ncol(non_qc_samples)], is.na)) || any(sapply(non_qc_samples[, 4:ncol(non_qc_samples)], is.infinite))) {
+      showNotification("Non-QC samples still contain missing or infinite values. Filter failed. Please manually edit data.", type = "error")
+      return(NULL)
+    }
+    
+    showNotification("Filtering successful.", type = "message")
+    
     #Calculate CVs for QC and non-QC samples
     qc_cv <- calculate_cv(qc_samples[, 4:ncol(qc_samples)])
     non_qc_cv <- calculate_cv(non_qc_samples[, 4:ncol(non_qc_samples)])
@@ -4343,9 +4396,17 @@ server <- function(input, output, session){
     output$average_cv_table <- renderTable({
       cv_table})
     
-    #Extract m/z values and names ande create a dataframe to plot m/z vs CV
+    #Extract m/z values and names and create a dataframe to plot m/z vs CV
     mz_names <- extract_mass(colnames(peak_areas_data())[4:ncol(peak_areas_data())])
-    plot_data <- data.frame(mz = mz_names$mz, cv = avg_cv$non_qc_cv_values, name = colnames(peak_areas_data())[4:ncol(peak_areas_data())])
+    
+    #Filter out excluded columns that contained NAs or Infs
+    valid_indices <- which(!is.na(avg_cv$non_qc_cv_values) & !is.infinite(avg_cv$non_qc_cv_values))
+    filtered_mz_names <- mz_names$mz[valid_indices]
+    filtered_colnames <- colnames(peak_areas_data())[4:ncol(peak_areas_data())][valid_indices]
+    filtered_cv_values <- avg_cv$non_qc_cv_values[valid_indices]
+    
+    #Finalize dataframe
+    plot_data <- data.frame(mz = filtered_mz_names, cv = filtered_cv_values, name = filtered_colnames)
     
     #Sort the data frame by m/z values
     plot_data <- plot_data[order(plot_data$mz), ]
@@ -4490,13 +4551,6 @@ server <- function(input, output, session){
       scrollY = "400px",
       paging = FALSE
     ))
-  })
-  
-  
-  #clear cache once session has ended
-  session$onSessionEnded(function() {
-    gc()
-    stopApp()
   })
   
   

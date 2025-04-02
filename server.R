@@ -762,7 +762,6 @@ server <- function(input, output, session){
       print("File Reading Complete")
       
       #Unlock "assayData" environment 
-      
       env_binding_unlock(run_data@assayData)
       
       #####3.6 Perform Mass Calibration#####
@@ -771,9 +770,8 @@ server <- function(input, output, session){
       mass_df <- massData()
       is_df <- refMassListData()
       parameters_df <- parametersData()
-   
       
-      
+
       calibration_response <- parameters_df$apply.mass.calibration
       
       #Confirm response is "Yes" or "No". Otherwise, produce an error.
@@ -2754,6 +2752,15 @@ server <- function(input, output, session){
       #Update the reactive plot_list_data
       plot_list_data_values$plot_list <- plot_list
       
+      #Update peak_area_df using comment_df
+      for (i in 1:nrow(plot_list_data_values$peak_area_df)) {
+        plot_list_data_values$peak_area_df[i, 3:ncol(plot_list_data_values$peak_area_df)] <- ifelse(
+          plot_list_data_values$comment_df[i, ] == "",
+          plot_list_data_values$peak_area_df[i, 3:ncol(plot_list_data_values$peak_area_df)],
+          plot_list_data_values$comment_df[i, ]
+        )
+      }
+      
       #Save changes
       save_plot_data(plotname)
       
@@ -2819,6 +2826,15 @@ server <- function(input, output, session){
       
       #Update the reactive plot_list_data
       plot_list_data_values$plot_list <- plot_list
+      
+      #Update peak_area_df using comment_df
+      for (i in 1:nrow(plot_list_data_values$peak_area_df)) {
+        plot_list_data_values$peak_area_df[i, 3:ncol(plot_list_data_values$peak_area_df)] <- ifelse(
+          plot_list_data_values$comment_df[i, ] == "",
+          plot_list_data_values$peak_area_df[i, 3:ncol(plot_list_data_values$peak_area_df)],
+          plot_list_data_values$comment_df[i, ]
+        )
+      }
       
       #Save changes
       save_plot_data(plotname)
@@ -3295,8 +3311,8 @@ server <- function(input, output, session){
           elem.innerText = newMessage;
         }
       }
-      setInterval(updateMessage, 3000); // Update every 5 seconds
-    }, 1000);
+      setInterval(updateMessage, 4000); // Update every 5 seconds
+    }, 2000);
   ", jsonlite::toJSON(loading_messages, auto_unbox = TRUE))
     runjs(js_script)
     

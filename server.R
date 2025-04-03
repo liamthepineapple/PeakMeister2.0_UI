@@ -927,16 +927,60 @@ server <- function(input, output, session){
       max <- mz_vec + mz_vec * mass_error_vec / 1000000
       mzr <- matrix(c(min, max), ncol = 2)
       
-      #Extract electropherograms
       
+      
+      
+      assay_data_env <- assayData(run_data)
+      
+      # List all the objects in the assayData environment
+      spectra_names <- ls(assay_data_env)
+      
+      # Create a new environment to store the sorted spectra
+      sorted_assay_data_env <- new.env()
+      
+      
+      # Loop through each spectrum and check if m/z values are unsorted
+      for (i in spectra_names) {
+        # Access the i-th spectrum correctly using get()
+        spectrum <- get(i, assay_data_env)  # Get the spectrum by its name
+        
+        # Check if m/z values are unsorted
+        mz_values <- mz(spectrum)
+        
+        if (is.unsorted(mz_values)) {
+          cat("Spectrum", i, "has unsorted MZ values\n")
+          
+          # Sort the problematic spectrum
+          intensity_values <- intensity(spectrum)
+          order_idx <- order(mz_values)
+          
+          # Create a sorted Spectrum1 object
+          sorted_spectrum <- new("Spectrum1",
+                                 mz = mz_values[order_idx],
+                                 intensity = intensity_values[order_idx],
+                                 rt = rtime(spectrum),  # Retention time remains the same
+                                 tic = sum(intensity_values[order_idx]), 
+                                 centroided = centroided(spectrum),
+                                 fromFile = fromFile(spectrum))
+          cat("Sorted Spectrum", i, "\n")  # Confirmation that the spectrum is sorted
+        } else {
+          sorted_spectrum <- spectrum  # If already sorted, keep the original spectrum
+        }
+        
+        # Store the sorted spectrum in the new environment
+        assign(i, sorted_spectrum, sorted_assay_data_env)
+      }
+     
+     #Directly update the assayData slot of run_data
+     slot(run_data, "assayData") <- sorted_assay_data_env
+      
+      #Extract electropherograms
       electropherograms <- chromatogram(run_data,
                                         mz = mzr,
                                         rt = c(0,end(rtime(run_data))),
                                         aggregationFun = "mean",
                                         missing = 0,
                                         msLevel = 1)
-      
-      #Create a data frame of migration times and intensities with electropherograms data
       
       eie_df <- data.frame("mt.seconds" = electropherograms[1]@rtime)
       
@@ -945,7 +989,6 @@ server <- function(input, output, session){
         colnames(temp_df) <- paste(name_vec[n], "intensity", sep = " ")
         eie_df <- cbind(eie_df,temp_df)
       }
-      
   
       print("Extraction Complete")
       
@@ -4270,18 +4313,16 @@ server <- function(input, output, session){
     
     #Check for missing or infinite values
     if (any(is.na(data)) || any(is.infinite(data))) {
-      showNotification("Data contains missing or infinite values.", type = "error")
+      showNotification("PCA Data contains missing or infinite values.", type = "error")
     }
     #Identify columns with all missing or infinite values
     cols_to_exclude <- which(apply(data, 2, function(x) all(is.na(x)) || all(is.infinite(x))))
-    
     if (length(cols_to_exclude) > 0) {
       excluded_cols <- colnames(data)[cols_to_exclude]
       showNotification(paste("Excluding columns with all missing or infinite values:", paste(excluded_cols, collapse = ", ")), type = "warning")
-      data <- data[, -cols_to_exclude]
-    }
+      data <- data[, -cols_to_exclude]}
     
-    # Check for any remaining missing or infinite values
+    #Check for any remaining missing or infinite values
     if (any(is.na(data)) || any(is.infinite(data))) {
       showNotification("Data still contains missing or infinite values. Filter failed. Please manually edit data.", type = "error")
       return(NULL)

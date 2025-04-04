@@ -722,7 +722,6 @@ server <- function(input, output, session){
     
     
     for (d in 1:length(data_files)){
-      
       #Initialize progress bar
       withProgress(message = paste("Processing data file:", data_file_names[d]), value = 0,{ total_steps <- 7
  
@@ -735,17 +734,11 @@ server <- function(input, output, session){
       
       
       #Make a copy of the data file as data will be written directly to this file during mass calibration
-      
       file <- gsub(".mz5", "", data_files[d])
-      
       file.copy(data_files[d], to = paste(file, "temp.mz5", sep = "_"))
       
       #Read copied data file and update progress bar
-      
-      
       incProgress(1/total_steps, detail = paste("Reading Data File"))
-      
-      
       print("Reading Data File")
       
       run_data <- readMSData(
@@ -920,54 +913,51 @@ server <- function(input, output, session){
       mass_error_vec <- c(is_df$extraction.window.ppm, mass_df$extraction.window.ppm)
       
       #Create a matrix of minimum and maximum m/z values for each internal standard and metabolite
-      
       mz_vec <- c(is_df$mz, mass_df$mz)
-      
       min <- mz_vec - mz_vec * mass_error_vec / 1000000
       max <- mz_vec + mz_vec * mass_error_vec / 1000000
       mzr <- matrix(c(min, max), ncol = 2)
       
-      
-      
-      
+      #Process/check for correcting any unsorted MZ values in extracted spectra in the MSnExp obj. No clue why this occurs but it can be corrected.
+      #Extract the spectra from the assayData environment stored in the run_data MSnExp
       assay_data_env <- assayData(run_data)
       
-      # List all the objects in the assayData environment
+      #List all the objects in the assayData environment
       spectra_names <- ls(assay_data_env)
       
-      # Create a new environment to store the sorted spectra
+      #Create synthetic environment to merge with the real assayData environment component in run_data after spectra have been sorted
       sorted_assay_data_env <- new.env()
       
-      
-      # Loop through each spectrum and check if m/z values are unsorted
+      #Loop through each spectrum in run_data and check if m/z values are unsorted. 
       for (i in spectra_names) {
-        # Access the i-th spectrum correctly using get()
-        spectrum <- get(i, assay_data_env)  # Get the spectrum by its name
+        spectrum <- get(i, assay_data_env) 
         
-        # Check if m/z values are unsorted
+        #Check if m/z values are unsorted
         mz_values <- mz(spectrum)
-        
         if (is.unsorted(mz_values)) {
           cat("Spectrum", i, "has unsorted MZ values\n")
           
-          # Sort the problematic spectrum
+          #Sort the problematic spectrum
           intensity_values <- intensity(spectrum)
           order_idx <- order(mz_values)
           
-          # Create a sorted Spectrum1 object
+          #Create a sorted Spectrum1 object which will then be merged into the original run_data assayData. This allows for correction of the unsorted spectra.
           sorted_spectrum <- new("Spectrum1",
                                  mz = mz_values[order_idx],
                                  intensity = intensity_values[order_idx],
-                                 rt = rtime(spectrum),  # Retention time remains the same
+                                 rt = rtime(spectrum),
                                  tic = sum(intensity_values[order_idx]), 
                                  centroided = centroided(spectrum),
                                  fromFile = fromFile(spectrum))
-          cat("Sorted Spectrum", i, "\n")  # Confirmation that the spectrum is sorted
+          
+          #Confirm spectra is sorted
+          cat("Sorted Spectrum", i, "\n")  
         } else {
-          sorted_spectrum <- spectrum  # If already sorted, keep the original spectrum
+          #If already sorted, keep the original spectrum
+          sorted_spectrum <- spectrum  
         }
         
-        # Store the sorted spectrum in the new environment
+        #Store the sorted spectrum in the new environment
         assign(i, sorted_spectrum, sorted_assay_data_env)
       }
      
@@ -989,7 +979,7 @@ server <- function(input, output, session){
         colnames(temp_df) <- paste(name_vec[n], "intensity", sep = " ")
         eie_df <- cbind(eie_df,temp_df)
       }
-  
+      
       print("Extraction Complete")
       
       #####3.8 Smooth Intensity Vectors#####
@@ -1033,9 +1023,7 @@ server <- function(input, output, session){
         #Clean-up global environment
         
         rm(list = c("electropherograms", "mzr", "Smooth", "temp_df", "max", "min", 
-                    "n", "mass_error_vec", "run_data", "smoothing_strength_vec",
-                    "smoothing_kernel_vec"))
-        
+                    "n", "mass_error_vec", "run_data", "smoothing_strength_vec","smoothing_kernel_vec","assay_data_environment","assay_data_env","spectra_names","sorted_assay_data_env"))
       }
       
       renderText("Electropherograms Smoothing Complete")

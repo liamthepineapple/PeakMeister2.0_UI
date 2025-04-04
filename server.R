@@ -2748,6 +2748,14 @@ server <- function(input, output, session){
   observeEvent(input$deletemiddlepeaks, {
     req(input$plot_table_rows_selected)
     
+    #Store the current state before making changes
+    previous_metadata$comment_df <- run_metadata$comment_df
+    previous_metadata$plot_list <- run_metadata$plot_list
+    previous_metadata$peaks_df <- run_metadata$peaks_df
+    previous_metadata$peak_mt_df <- run_metadata$peak_mt_df
+    previous_metadata$peak_area_df <- run_metadata$peak_area_df
+    previous_metadata$mi_df <- run_metadata$mi_df
+    
     #Extract the current plot name
     selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
     base_file_name <- sub("\\.mz5$", "", input$file_selector)
@@ -2826,6 +2834,14 @@ server <- function(input, output, session){
   ######4.4.4 Button for deleting ALL peaks in a plot######
   observeEvent(input$deleteallpeaks, {
     req(input$plot_table_rows_selected)
+    
+    #Store the current state before making changes
+    previous_metadata$comment_df <- run_metadata$comment_df
+    previous_metadata$plot_list <- run_metadata$plot_list
+    previous_metadata$peaks_df <- run_metadata$peaks_df
+    previous_metadata$peak_mt_df <- run_metadata$peak_mt_df
+    previous_metadata$peak_area_df <- run_metadata$peak_area_df
+    previous_metadata$mi_df <- run_metadata$mi_df
     
     #Extract the current plot name
     selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]

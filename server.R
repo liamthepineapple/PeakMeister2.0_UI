@@ -928,17 +928,30 @@ server <- function(input, output, session){
       #Create synthetic environment to merge with the real assayData environment component in run_data after spectra have been sorted
       sorted_assay_data_env <- new.env()
       
-      #Loop through each spectrum in run_data and check if m/z values are unsorted. 
+      #Loop through each spectrum in run_data and check if m/z values are unsorted AND if m/z values are negative. 
       for (i in spectra_names) {
         spectrum <- get(i, assay_data_env) 
         
-        #Check if m/z values are unsorted
         mz_values <- mz(spectrum)
+        intensity_values <- intensity(spectrum)
+        
+        #Find any negative m/z values and replace them.
+        valid_idx <- mz_values >= 0
+        mz_values <- mz_values[valid_idx]
+        intensity_values <- intensity_values[valid_idx]
+        
+        if (length(mz_values) == 0) {
+          cat("Spectrum", i, "has no valid MZ values after removing negatives\n")
+          next
+        }
+        
+        
+        #Check if m/z values are unsorted
         if (is.unsorted(mz_values)) {
           cat("Spectrum", i, "has unsorted MZ values\n")
           
           #Sort the problematic spectrum
-          intensity_values <- intensity(spectrum)
+          
           order_idx <- order(mz_values)
           
           #Create a sorted Spectrum1 object which will then be merged into the original run_data assayData. This allows for correction of the unsorted spectra.

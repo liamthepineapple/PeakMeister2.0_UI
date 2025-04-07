@@ -2419,7 +2419,6 @@ server <- function(input, output, session){
   main_folder <- reactive({
     req(input$results_folder)
     input$results_folder
-
   })
   
   #Reactive expression to store the path to the selected results folder
@@ -2573,6 +2572,14 @@ server <- function(input, output, session){
     req(main_folder(), input$file_selector)
     file_name <- input$file_selector
     subfolder_path <- file.path(main_folder(), "Data", file_name)
+    
+    
+    # Debug print statements for paths
+    print(paste("Main folder:", main_folder()))
+    print(paste("File selector:", file_name))
+    print(paste("Subfolder path:", subfolder_path))
+    
+    
     
     #Check if the file exists before attempting to load it
     if (file.exists(file.path(subfolder_path, "plot_list_data.RData"))) {
@@ -2744,6 +2751,7 @@ server <- function(input, output, session){
     }, options = list(pageLength = 13), selection = 'multiple')
 })
   
+
   ######4.4.3 Button for deleting all but the first and last peaks######
   observeEvent(input$deletemiddlepeaks, {
     req(input$plot_table_rows_selected)
@@ -2965,7 +2973,6 @@ server <- function(input, output, session){
   #####4.6 Regenerate plots#####
 
   ######4.6.1 Defining Plotting Functions######
-  
    #ggplot function
    plot_function <- function(eie_data, annotation_data, integration_data, label_data, x_axis_data, y_axis_data, base_file_name, font_size_1, font_size_2){
   
@@ -3073,7 +3080,7 @@ server <- function(input, output, session){
      temp_area_df <- list()
      
      #Get the list of all folders in the Data directory
-     data_subfolders <- list.dirs(path = file.path(input$results_folder, "Data"), full.names = TRUE, recursive = FALSE)
+     data_subfolders <- list.dirs(path = file.path(main_folder(), "Data"), full.names = TRUE, recursive = FALSE)
      
      #Loop through each subfolder to load peak_area_df
      for (subfolder_path in data_subfolders) {

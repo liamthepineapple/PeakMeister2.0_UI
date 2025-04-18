@@ -3351,7 +3351,18 @@ server <- function(input, output, session){
      "Performing an exorcism on the previous plots...",
      "Pleading with the R gods for mercy...",
      "Recalculating everything... again...",
-     "Casting a circle of salt around the data..."
+     "Casting a circle of salt around the data...",
+     "Begging...",
+     "Hoping that everything is still there at the end",
+     "I feel like we are suposed to be loading something",
+     "Integrating something completly random...",
+     "Woah! Look at it go",
+     "Our premium plan is faster...",
+     "Trying not to crash, burn, and die",
+     "Avoiding a crashout...",
+     "Loading sounds...",
+     "Discovering new ways to make you wait",
+     "Try holding your breath through this"
    )
 
   #Action button for regenerating plots
@@ -3620,10 +3631,14 @@ server <- function(input, output, session){
   #Function for adjusting individual baseline
   adjust_individual_baseline <- function(peak_index = NULL){
     
+    
     #define variables required for plotting 
     selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
     base_file_name <- sub("\\.mz5$", "", input$file_selector)
     plotname <- sub(paste0("^", base_file_name, "_"), "", selected_plot_name)
+    
+    #Mark the plot as modified
+    modified_peak_plots$names <- unique(c(modified_peak_plots$names, selected_plot_name))
     
     #Use clicked Y value as the new baseline
     new_baseline <- session$userData$clicked_position$y
@@ -3713,8 +3728,6 @@ server <- function(input, output, session){
     plot_list_data_values$peak_area_df <- peak_area_df
     plot_list_data_values$peaks_df <- peaks_df
     
-    #Mark the plot as modified
-    modified_peak_plots$names <- unique(c(modified_peak_plots$names, plotname))
     
     #Save the updated peaks_df back to the plot_list_data.RData file
     save_plot_data(plotname)
@@ -3790,6 +3803,10 @@ server <- function(input, output, session){
     selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
     base_file_name <- sub("\\.mz5$", "", input$file_selector)
     plotname <- sub(paste0("^", base_file_name, "_"), "", selected_plot_name)
+    
+    #Mark the plot as modified
+    modified_peak_plots$names <- unique(c(modified_peak_plots$names, selected_plot_name))
+    
     plot_data <- plot_list_data_values$plot_list[[plotname]]
     eie_df <- plot_data$eie_data
     peaks_df <- plot_list_data_values$peaks_df
@@ -3855,7 +3872,7 @@ server <- function(input, output, session){
     plot_list_data_values$plot_list[[plotname]]$integration_data <- integration_data
     plot_list_data_values$peak_area_df <- peak_area_df
     plot_list_data_values$peaks_df <- peaks_df
-    modified_peak_plots$names <- unique(c(modified_peak_plots$names, plotname))
+    
     save_plot_data(plotname)
     
     showNotification("All baselines adjusted. Areas and metadata updated.", type = "message")

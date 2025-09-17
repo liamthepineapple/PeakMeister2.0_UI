@@ -91,7 +91,7 @@ ui <- dashboardPage(
                    solidHeader = TRUE,
                    width = NULL,
                    #Create collapsible tabs that are populated by the content of the .md files in the Documentation folder
-                   bsCollapse(id = "collapseExample", open = "Disclaimer",
+                   bsCollapse(id = "collapseExample", open = "README",
                               bsCollapsePanel("Disclaimer", uiOutput("disclaimerContent")),
                               bsCollapsePanel("README", uiOutput("readmeContent")),
                               bsCollapsePanel("Updates", uiOutput("updatesContent")),
@@ -459,6 +459,9 @@ ui <- dashboardPage(
                       tabPanel("Metadata",
                                tags$h4(style = "text-decoration: underline;", "Peak Area Datatable"),
                              DTOutput("peak_area_table")
+                    ),
+                    
+                    tabPanel("Batch Correction",
                     )
                   )
                 )

@@ -4564,6 +4564,8 @@ server <- function(input, output, session){
     ))
   })
   
+  ######5.9 Integrated Batch Correction######
+  
   ####6. Reporting####
   #Create reactive variable for storing the Matrix to display it.
   MetaboloMatrix <- reactiveVal(NULL)

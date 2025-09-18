@@ -4589,60 +4589,76 @@ server <- function(input, output, session){
     showNotification("Environemnt Initialized", type = "message")
   })
   
-
+  #Load Batch Corr Order
+  batch_order <- reactive({
+    req(input$batch_corr_order)  # Ensure file is uploaded
+    read.csv(input$batch_corr_order$datapath, stringsAsFactors = FALSE)
+  })
+  
+  
+  ######5.9.2 Perform Batch Correction######
+  observeEvent(input$batch_corr,{
+  
+    #Load data.
+    Rawdata <- peak_areas_data()
+    FAMILYPos.Y <- batch_order()
+  
+    #Perform log10 transform on raw data before correction, used FAMILY cohort as the template
+    # FAMILYPos <- log10(Rawdata[,-1])
     
-  # #Load required libraries
-  # library(BatchCorrMetabolomics)
-  # 
-  # #Loadrraw uncorrected raw data from csv files
-  # Rawdata <- read.csv(file="E:/Zach/Serum (Orlando_Health_Meditation)/For batch correction/Aqueous/Batch Correction/Batch_correction_matrix.csv")
-  # FAMILYPos.Y <- read.csv(file="e:/Zach/Serum (Orlando_Health_Meditation)/For batch correction/Aqueous/Batch Correction/Batch_correction_order.csv")
-  # 
-  # #Perform log10 transform on raw data before correction, used FAMILY cohort as the template
-  # FAMILYPos <- log10(Rawdata[,-1])
-  # 
-  # #Create variables necessary for batch correction with initial conditions
-  # rownames(FAMILYPos) <- Rawdata[,1]
-  # minBatchOccurrence.Ave <- 2
-  # minBatchOccurrence.Line <- 2
-  # conditions <- c("")           #Replace missing variables with not available
-  # experiments <- c(t(outer(c("Q", "S"), conditions, paste, sep = ""))) 
-  # 
-  # methods <- rep("lm", length(experiments))
-  # methods[grep("c", experiments)] <- "tobit" 
-  # FAMILYPos.Lod <- as.numeric(as.character(min(FAMILYPos[!is.na(FAMILYPos)])))
-  # imputeValues <- rep(NA, length(experiments))
-  # 
-  # refSamples <- list("Q" = which(FAMILYPos.Y$SCode == "ref"),
-  #                    "S" = which(FAMILYPos.Y$SCode != "ref"))
-  # strategies <- rep(c("Q", "S"), each = length(conditions))
-  # 
-  # #Perform batch correction
-  # print("Test 1")
-  # BatchCorrResults <- lapply(seq(along = experiments), function(ii) 
-  #   apply(FAMILYPos, 2, doBC,
-  #         ref.idx = refSamples[[ strategies[[ii]] ]],
-  #         batch.idx = FAMILYPos.Y$Batch,  
-  #         minBsamp = minBatchOccurrence.Line,
-  #         seq.idx = FAMILYPos.Y$Seq,
-  #         method = methods[ii],
-  #         imputeVal = imputeValues[ii])) 
-  # print("Test 2")
-  # 
-  # #Naming list items with the type of correction that was done
-  # names(BatchCorrResults) <- experiments 
-  # 
-  # #Calculated anti-log of corrected results
-  # BatchCorrResultsAntilog <- BatchCorrResults
-  # BatchCorrResultsAntilog$Q=10^(BatchCorrResultsAntilog$Q)
-  # BatchCorrResultsAntilog$S=10^(BatchCorrResultsAntilog$S)
-  # 
-  # #Write corrected results to csv files
-  # write.csv(BatchCorrResults, file = "DOHAD__FAMILY2024_Aqueous_BatchCorrected_Final.csv")
-  # write.csv(BatchCorrResultsAntilog, file = "DOHAD_FAMILY2024_Aqueous_BatchCorrected_Antilog_Final.csv")
+    FAMILYPos <- Rawdata
+    #Define which columns are your metabolites
+    metCols <- 4:ncol(FAMILYPos)
+    
+    #Apply log10 in place
+    FAMILYPos[ , metCols] <- log10(FAMILYPos[ , metCols])
   
+    View(FAMILYPos)
+    
+    #Create variables necessary for batch correction with initial conditions
+    #rownames(FAMILYPos) <- Rawdata[,1]
+    minBatchOccurrence.Ave <- 2
+    minBatchOccurrence.Line <- 2
+    conditions <- c("")           #Replace missing variables with not available
+    experiments <- c(t(outer(c("Q", "S"), conditions, paste, sep = "")))
   
-  
+    methods <- rep("lm", length(experiments))
+    methods[grep("c", experiments)] <- "tobit"
+    FAMILYPos.Lod <- as.numeric(as.character(min(FAMILYPos[ , metCols][!is.na(FAMILYPos[ , metCols])])))
+    imputeValues  <- rep(NA, length(experiments))
+    
+    refSamples <- list(
+      "Q" = which(FAMILYPos.Y$SCode == "ref"),
+      "S" = which(FAMILYPos.Y$SCode != "ref")
+    )
+    strategies <- rep(c("Q", "S"), each = length(conditions))
+    
+    # Perform batch correction ONLY on numeric metabolite columns
+    print("Test 1")
+    BatchCorrResults <- lapply(seq(along = experiments), function(ii)
+      apply(FAMILYPos[ , metCols], 2, doBC,
+            ref.idx   = refSamples[[ strategies[[ii]] ]],
+            batch.idx = FAMILYPos.Y$Batch,
+            minBsamp  = minBatchOccurrence.Line,
+            seq.idx   = FAMILYPos.Y$Seq,
+            method    = methods[ii],
+            imputeVal = imputeValues[ii])
+    )
+    print("Test 2")
+    
+    # Naming list items with the type of correction
+    names(BatchCorrResults) <- experiments
+    
+    # Anti-log of corrected results
+    BatchCorrResultsAntilog <- BatchCorrResults
+    BatchCorrResultsAntilog$Q <- 10^(BatchCorrResultsAntilog$Q)
+    BatchCorrResultsAntilog$S <- 10^(BatchCorrResultsAntilog$S)
+    
+    # Write corrected results to CSV files
+    write.csv(BatchCorrResults,        file = "BatchCorrResults.csv")
+    write.csv(BatchCorrResultsAntilog, file = "BatchCorrResultsAntilog.csv")
+    
+  })
   
   ####6. Reporting####
   #Create reactive variable for storing the Matrix to display it.

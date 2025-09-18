@@ -4550,7 +4550,7 @@ server <- function(input, output, session){
   })
   
   
-  ######5.8 Display Data######
+  #####5.8 Display Data#####
   #Display data
   output$peak_area_table <- renderDT({
     datatable(peak_areas_data(), extensions = 'FixedColumns', options = list(
@@ -4564,8 +4564,33 @@ server <- function(input, output, session){
     ))
   })
   
-  ######5.9 Integrated Batch Correction######
+  #####5.9 Integrated Batch Correction#####
+  ######5.9.1 Initialize Environment######
+  observeEvent(input$load_batchcorr_packages,{
+    #Note: I am aware that installing packages when the ShinyApp is already running is not ideal. However, for some reason, to install the package RcppArmadillo, which is a dependency of ChemometricsWithR and BatchCorrMetabolomics which we need to run the Batch Correction, R requires a C++ compiler of C++14. The only way I was able to achieve this was by finding the file Makevars.win located where R is stored on your computer and adding the line: CXX_STD=CXX14. Since the app crashes without this, I didnt want to include this as a requirement on setup... Also, BatchCorr wont be done with every run so why load it before?
+    
+    showNotification("Don't forget to type Yes/No or Y/N in R console to install packages", type = "warning")
+    
+    #Install packages
+    if (!requireNamespace("RcppArmadillo", quietly = TRUE)) {
+      install.packages("RcppArmadillo")}
+    library(RcppArmadillo)
+    
+    #Install ChemometricWithR. If you just try to have R download this when installing BatchCorrMetabolomics, it fails. Hence the separation
+    if (!requireNamespace("ChemometricsWithR", quietly = TRUE)) {
+      remotes::install_github("rwehrens/ChemometricsWithR")}
+    library(ChemometricsWithR)
+    
+    #Install BatchCorrMetabolomics after installing troublesome and required dependencies 
+    if (!requireNamespace("BatchCorrMetabolomics", quietly = TRUE)) {
+      remotes::install_github("rwehrens/BatchCorrMetabolomics")}
+    library(BatchCorrMetabolomics)
+    
+    showNotification("Environemnt Initialized", type = "message")
+  })
   
+
+    
   # #Load required libraries
   # library(BatchCorrMetabolomics)
   # 

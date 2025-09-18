@@ -463,7 +463,9 @@ ui <- dashboardPage(
                     
                     tabPanel("Batch Correction",
                            #initialize environment
-                           actionButton("load_batchcorr_packages", "Initialize Packages")
+                           actionButton("load_batchcorr_packages", "Initialize Packages"),
+                           fileInput("batch_corr_order", "Upload Batch Correction Order", accept = c(".csv")),
+                           actionButton("batch_corr", "Perform Batch Correction")
                     )
                   )
                 )

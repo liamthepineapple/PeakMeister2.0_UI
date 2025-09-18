@@ -6,7 +6,7 @@
 if (!require("pacman", quietly = TRUE)) install.packages("pacman")
 if (!require("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 
-pacman::p_load("shiny","shinyBS", "tools","waiter","shinyFiles","RColorBrewer","shinycssloaders", "shinydashboard", "DT", "shinyalert","ggplot2","ggpubr", "plotly","hash","pracma", "tidyverse", "stats", "DescTools", "xcms", "rlang","markdown", "openxlsx","readxl","writexl","fontawesome", "MSnbase", "mzR","shinyjs","FactoMineR", "factoextra","jsonlite",
+pacman::p_load("shiny","shinyBS", "tools","waiter","shinyFiles","RColorBrewer","shinycssloaders", "shinydashboard", "DT", "shinyalert","ggplot2","ggpubr", "plotly","hash","pracma", "tidyverse", "stats", "DescTools", "xcms", "rlang","markdown", "openxlsx","readxl","writexl","fontawesome", "MSnbase", "mzR","shinyjs","FactoMineR", "factoextra","jsonlite","remotes",
                install = TRUE)
 
 #Title of app
@@ -462,6 +462,8 @@ ui <- dashboardPage(
                     ),
                     
                     tabPanel("Batch Correction",
+                           #initialize environment
+                           actionButton("load_batchcorr_packages", "Initialize Packages")
                     )
                   )
                 )

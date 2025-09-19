@@ -4601,22 +4601,18 @@ server <- function(input, output, session){
   
     #Load data.
     Rawdata <- peak_areas_data()
-    FAMILYPos.Y <- batch_order()
+    batch_metadata <- batch_order()
   
-    #Perform log10 transform on raw data before correction, used FAMILY cohort as the template
-    # FAMILYPos <- log10(Rawdata[,-1])
+    #Perform log10 transform on raw data before correction
+    data_BatchCorr <- Rawdata
     
-    FAMILYPos <- Rawdata
     #Define which columns are your metabolites
-    metCols <- 4:ncol(FAMILYPos)
+    metCols <- 4:ncol(data_BatchCorr)
     
     #Apply log10 in place
-    FAMILYPos[ , metCols] <- log10(FAMILYPos[ , metCols])
-  
-    View(FAMILYPos)
+    data_BatchCorr[ , metCols] <- log10(data_BatchCorr[ , metCols])
     
     #Create variables necessary for batch correction with initial conditions
-    #rownames(FAMILYPos) <- Rawdata[,1]
     minBatchOccurrence.Ave <- 2
     minBatchOccurrence.Line <- 2
     conditions <- c("")           #Replace missing variables with not available
@@ -4624,23 +4620,23 @@ server <- function(input, output, session){
   
     methods <- rep("lm", length(experiments))
     methods[grep("c", experiments)] <- "tobit"
-    FAMILYPos.Lod <- as.numeric(as.character(min(FAMILYPos[ , metCols][!is.na(FAMILYPos[ , metCols])])))
+    LOD <- as.numeric(as.character(min(data_BatchCorr[ , metCols][!is.na(data_BatchCorr[ , metCols])])))
     imputeValues  <- rep(NA, length(experiments))
     
     refSamples <- list(
-      "Q" = which(FAMILYPos.Y$SCode == "ref"),
-      "S" = which(FAMILYPos.Y$SCode != "ref")
+      "Q" = which(batch_metadata$SCode == "ref"),
+      "S" = which(batch_metadata$SCode != "ref")
     )
     strategies <- rep(c("Q", "S"), each = length(conditions))
     
     # Perform batch correction ONLY on numeric metabolite columns
     print("Test 1")
     BatchCorrResults <- lapply(seq(along = experiments), function(ii)
-      apply(FAMILYPos[ , metCols], 2, doBC,
+      apply(data_BatchCorr[ , metCols], 2, doBC,
             ref.idx   = refSamples[[ strategies[[ii]] ]],
-            batch.idx = FAMILYPos.Y$Batch,
+            batch.idx = batch_metadata$Batch,
             minBsamp  = minBatchOccurrence.Line,
-            seq.idx   = FAMILYPos.Y$Seq,
+            seq.idx   = batch_metadata$Seq,
             method    = methods[ii],
             imputeVal = imputeValues[ii])
     )

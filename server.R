@@ -2505,11 +2505,19 @@ server <- function(input, output, session){
                                              list_results_folders()
                                            }
   )
+  
   #Observe the reactive polling and update the select input
-  observe({
-    updateSelectInput(session, "results_folder", choices = results_folders_reactive())
+  observeEvent(results_folders_reactive(), {
+    new_choices <- results_folders_reactive()
+    current     <- input$results_folder
+    updateSelectInput(session,"results_folder",choices  = new_choices,
+      selected = if (current %in% new_choices) current else new_choices[1])
   })
   
+  #Print results folder in console just to confirm that user is in correct place. 
+  observeEvent(input$results_folder, {
+    cat("Current results folder:", main_folder(), "\n")
+  })
   
   #####4.3 Render and display plots and annotation information#####
   

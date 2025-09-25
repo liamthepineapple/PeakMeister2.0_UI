@@ -320,7 +320,7 @@ ui <- dashboardPage(
                        actionButton("resetplotlydata","Clear uploaded data"),
                        #Button for selecting files -> will subset/filter data to choose plots
                        selectInput("file_selector", "Select File:", choices = NULL),
-                       HTML("<p><strong>Warning:</strong> You can only edit the data of a <strong><u>single</strong></u> file<br> at a time. Switching files will remove any changes<br> if plots have not been regenerated. Modifications <br>can be observed in the table below.</p>"),
+                       HTML("<p><strong></<strong><u>Don't forget</strong></u> to set your results folder!</p>"),
                        
                        #Select results folder to work out of 
                        selectInput("results_folder", "Select Results Folder:", choices = NULL),

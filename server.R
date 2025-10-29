@@ -12,7 +12,7 @@ server <- function(input, output, session){
   
   #Initialize plotly_data as an empty reactive variable
   plotly_data <- reactiveVal(list())
-
+  
   #Reactive values to store marker positions
   line_positions <- reactiveValues(red = 2, blue = 4)
   
@@ -1036,7 +1036,7 @@ server <- function(input, output, session){
         #Clean-up global environment
         
         rm(list = c("electropherograms", "mzr", "Smooth", "temp_df", "max", "min", 
-                    "n", "mass_error_vec", "run_data", "smoothing_strength_vec","smoothing_kernel_vec","assay_data_environment","assay_data_env","spectra_names","sorted_assay_data_env"))
+                    "n", "mass_error_vec", "run_data", "smoothing_strength_vec","smoothing_kernel_vec","assay_data_env","spectra_names","sorted_assay_data_env"))
       }
       
       renderText("Electropherograms Smoothing Complete")
@@ -2516,7 +2516,17 @@ server <- function(input, output, session){
   
   #Print results folder in console just to confirm that user is in correct place. 
   observeEvent(input$results_folder, {
-    cat("Current results folder:", main_folder(), "\n")
+    file_name <- if (!is.null(input$file_selector)) input$file_selector else "NA"
+    main_path <- if (!is.null(main_folder())) main_folder() else "NA"
+    subfolder_path <- if (main_path != "NA" && file_name != "NA") {
+      file.path(main_path, "Data", file_name)
+    } else {
+      "NA"
+    }
+    
+    cat("Current results folder:", main_path, "\n")
+    cat("File selector:", file_name, "\n")
+    cat("Subfolder path:", subfolder_path, "\n")
   })
   
   #####4.3 Render and display plots and annotation information#####
@@ -3933,7 +3943,6 @@ server <- function(input, output, session){
     removeModal()
   })
   
-  
   #####4.8 Server logic for dual EIE viewing.#####
   #Populate plot tables of plots you wish you display
   output$plottable1 <- renderDataTable({
@@ -3943,42 +3952,76 @@ server <- function(input, output, session){
   output$plottable2 <- renderDataTable({
     data.frame(Plot = filtered_plot_names())
   }, selection = 'single')
-
-  #Observe selected plots and render a combined subplot of these functions to zoom in on peaks
-  observeEvent({
-    #Wait for input on both plottable1 and plottable2 before executing the code. 
-    input$plottable1_rows_selected
-    input$plottable2_rows_selected
-  }, {
-    req(input$plottable1_rows_selected, input$plottable2_rows_selected)
-    selected_plotname1 <- filtered_plot_names()[input$plottable1_rows_selected]
-    selected_plotname2 <- filtered_plot_names()[input$plottable2_rows_selected]
-    plot1 <- plotly_data()[[selected_plotname1]]
-    plot2 <- plotly_data()[[selected_plotname2]]
-
-    #Create title for plot
-    base_file_name <- sub("\\.mz5$", "", input$file_selector)
-    plotname1 <- sub(paste0("^", base_file_name, "_"), "", selected_plotname1)
-    plotname2 <- sub(paste0("^", base_file_name, "_"), "", selected_plotname2)
-    combined_title <- paste("EIE of", plotname1, "(top) and", plotname2, "(bottom)")
-    
-    #Combine plots into a subplot 
-    output$combined_plot <- renderPlotly({
-      if (is.null(plot1) || is.null(plot2)) {
-        plotly_empty()
-      } else {
-        subplot(plot1, plot2, nrows = 2, shareX = TRUE, titleX = TRUE, titleY = TRUE) %>%
-          layout(
-            title = combined_title,
-            xaxis = list(title = "X-axis"),
-            yaxis = list(title = "Y-axis"),
-            xaxis2 = list(title = "X-axis"),
-            yaxis2 = list(title = "Y-axis")
-          )
-      }
-    }) 
-  })
   
+  output$plottable3 <- renderDataTable({
+    data.frame(Plot = filtered_plot_names())
+  }, selection = 'single')
+
+  # #Observe selected plots and render a combined subplot of these functions to zoom in on peaks
+  # observeEvent({
+  #   #Wait for input on both plottable1 and plottable2 before executing the code. 
+  #   input$plottable1_rows_selected
+  #   input$plottable2_rows_selected
+  # }, {
+  #   req(input$plottable1_rows_selected, input$plottable2_rows_selected)
+  #   selected_plotname1 <- filtered_plot_names()[input$plottable1_rows_selected]
+  #   selected_plotname2 <- filtered_plot_names()[input$plottable2_rows_selected]
+  #   plot1 <- plotly_data()[[selected_plotname1]]
+  #   plot2 <- plotly_data()[[selected_plotname2]]
+  # 
+  #   #Create title for plot
+  #   base_file_name <- sub("\\.mz5$", "", input$file_selector)
+  #   plotname1 <- sub(paste0("^", base_file_name, "_"), "", selected_plotname1)
+  #   plotname2 <- sub(paste0("^", base_file_name, "_"), "", selected_plotname2)
+  #   combined_title <- paste("EIE of", plotname1, "(top) and", plotname2, "(bottom)")
+  #   
+  #   #Combine plots into a subplot 
+  #   output$combined_plot <- renderPlotly({
+  #     if (is.null(plot1) || is.null(plot2)) {
+  #       plotly_empty()
+  #     } else {
+  #       subplot(plot1, plot2, nrows = 2, shareX = TRUE, titleX = TRUE, titleY = TRUE) %>%
+  #         layout(
+  #           title = combined_title,
+  #           xaxis = list(title = "X-axis"),
+  #           yaxis = list(title = "Y-axis"),
+  #           xaxis2 = list(title = "X-axis"),
+  #           yaxis2 = list(title = "Y-axis")
+  #         )
+  #     }
+  #   }) 
+  # })
+  
+  #Observe selected plots and render a combined subplot of these functions to zoom in on peaks
+  observe({
+    #Get selected indices from each table
+    sel1 <- input$plottable1_rows_selected
+    sel2 <- input$plottable2_rows_selected
+    sel3 <- input$plottable3_rows_selected
+    
+    #Combine and filter
+    selected_indices <- c(sel1, sel2, sel3)
+    selected_indices <- unique(na.omit(selected_indices))
+    
+    #Only proceed if 2 or more plots are selected. Generate subplot based on if 2 or 3 plots have been selected in tables.
+    if (length(selected_indices) >= 2) {
+      selected_names <- filtered_plot_names()[selected_indices]
+      plots <- lapply(selected_names, function(name) plotly_data()[[name]])
+      plots <- Filter(Negate(is.null), plots)
+      
+      if (length(plots) == length(selected_names)) {
+        base_file_name <- sub("\\.mz5$", "", input$file_selector)
+        cleaned_names <- sub(paste0("^", base_file_name, "_"), "", selected_names)
+        combined_title <- paste("EIE of", paste(cleaned_names, collapse = ", "))
+        
+        #Combine plots into one plot.
+        output$combined_plot <- renderPlotly({
+          subplot(plots, nrows = length(plots), shareX = TRUE, titleX = TRUE, titleY = TRUE) %>%
+            layout(title = combined_title)
+        })
+      }
+    }
+  })
   
 ####5. Downstream Processing ####   
   #####5.1 Initializing Environment for loading peak area and migration time data#####

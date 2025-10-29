@@ -374,10 +374,12 @@ ui <- dashboardPage(
                                 plotlyOutput("combined_plot", height = "600px"),
                                 tags$h4(style = "text-decoration: underline;", "Select Plots to Compare"),
                                 #Datatables for selecting plots for the combvined electropherograms
-                                column(6,
+                                column(4,
                                 DTOutput("plottable1")),
-                                column(6,
+                                column(4,
                                 DTOutput("plottable2")),
+                                column(4,
+                                DTOutput("plottable3")),
                     )
                   )
                 )

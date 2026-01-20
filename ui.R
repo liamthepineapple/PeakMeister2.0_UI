@@ -359,6 +359,8 @@ ui <- dashboardPage(
                        actionButton("adjust_all_baselines", "Adjust All Baselines"),
                        #Action button for regenerating plots
                        actionButton("regenerateplots", "Regenerate Changed Plots"),
+                       #action button for interferences
+                       actionButton("interferences","Mark Peak Interference"),
                        #Action button for deleting all but the first and last peaks.
                        actionButton("deletemiddlepeaks","Delete Middle Peaks (Keeps first and last)"),
                        #Action button for deleting all peaks

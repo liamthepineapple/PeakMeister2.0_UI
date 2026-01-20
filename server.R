@@ -4023,6 +4023,99 @@ server <- function(input, output, session){
     }
   })
   
+  
+  #####4.9 Marking Interferences#####
+  observeEvent(input$interferences, {
+    req(input$peak_info_table_rows_selected)
+    
+    #Store the current state before making changes
+    previous_metadata$comment_df <- run_metadata$comment_df
+    previous_metadata$plot_list <- run_metadata$plot_list
+    previous_metadata$peaks_df <- run_metadata$peaks_df
+    previous_metadata$peak_mt_df <- run_metadata$peak_mt_df
+    previous_metadata$peak_area_df <- run_metadata$peak_area_df
+    previous_metadata$mi_df <- run_metadata$mi_df
+    
+    selected_rows <- input$peak_info_table_rows_selected
+    
+    #Extract the current annotation_data
+    selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
+    base_file_name <- sub("\\.mz5$", "", input$file_selector)
+    plotname <- sub(paste0("^", base_file_name, "_"), "", selected_plot_name)
+    plot_list <- plot_list_data_values$plot_list
+    
+    #Mark the plot as edited so only plots that have been edited can be regenerated later
+    modified_peak_plots$names <- unique(c(modified_peak_plots$names, selected_plot_name))
+    
+    if (plotname %in% names(plot_list)) {
+      annotation_data <- plot_list[[plotname]]$annotation_data
+      integration_data <- plot_list[[plotname]]$integration_data
+      
+      #Loop through each selected row
+      for (selected_row in selected_rows) {
+        #Get the peak number from the selected row to allow matching accross various acccesible data streams
+        peak_number <- annotation_data$peak.number[selected_row]
+        
+        #Update the comment column for the selected peak
+        annotation_data$comment[selected_row] <- "Interferred"
+        
+        #Update comment_df so peak areas can be recauculated/reintegrated later on
+        if (plotname %in% colnames(plot_list_data_values$comment_df)) {
+          plot_list_data_values$comment_df[peak_number, plotname] <- "Interferred"
+        }
+        
+        #Remove all integration_data associated with the relevant peak number so regenerated plots will update with the interferred peaks once regenerated
+        integration_data <- integration_data[integration_data$peak.number != peak_number, ]
+      }
+      
+      #Update the plot_list with the modified annotation_data
+      plot_list[[plotname]]$annotation_data <- annotation_data
+      plot_list[[plotname]]$integration_data <- integration_data
+      
+      #Update the reactive plot_list_data
+      plot_list_data_values$plot_list <- plot_list
+    }
+    
+    #Update peak_area_df using comment_df
+    for (i in 1:nrow(plot_list_data_values$peak_area_df)) {
+      plot_list_data_values$peak_area_df[i, 3:ncol(plot_list_data_values$peak_area_df)] <- ifelse(
+        plot_list_data_values$comment_df[i, ] == "",
+        plot_list_data_values$peak_area_df[i, 3:ncol(plot_list_data_values$peak_area_df)],
+        plot_list_data_values$comment_df[i, ]
+      )
+    }
+    
+    #Save changes 
+    save_plot_data(plotname)
+    
+    #Reload the updated data
+    subfolder_path <- file.path(input$results_folder, "Data", run_metadata$file_name)
+    reload_plot_data(subfolder_path)
+    
+    #Update reactive values directly
+    plot_list_data_values$plot_list <- plot_list
+    plot_list_data_values$comment_df <- plot_list_data_values$comment_df
+    
+    
+    #Update the peak_info_table
+    output$peak_info_table <- DT::renderDataTable({
+      req(input$plot_table_rows_selected)
+      selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
+      
+      base_file_name <- sub("\\.mz5$", "", input$file_selector)
+      plotname <- sub(paste0("^", base_file_name, "_"), "", selected_plot_name)
+      plot_list <- plot_list_data_values$plot_list
+      
+      #Ensure the plotname exists in the plot_list
+      if (plotname %in% names(plot_list)) {
+        annotation_data <- plot_list[[plotname]]$annotation_data
+        annotation_data
+      } else {
+        data.frame()
+      }
+    }, options = list(pageLength = 13), selection = 'multiple')
+  })
+  
 ####5. Downstream Processing ####   
   #####5.1 Initializing Environment for loading peak area and migration time data#####
   #Define the function to load files
@@ -4141,7 +4234,7 @@ server <- function(input, output, session){
   observeEvent(input$normalize, {
     showModal(modalDialog(
       title = "Normalization Options",
-      selectInput("normalize_by", "Normalize By", choices = c("114.0667_Creatinine", "184.0774_F-Phe", "216.0427_Cl-Tyr")),
+      selectInput("normalize_by", "Normalize By", choices = c("114.0667_Creatinine", "184.0774_F-Phe", "216.0427_Cl-Tyr", "214.0271_Cl-Tyr")),
       footer = tagList(
         modalButton("Cancel"),
         actionButton("confirm_normalize", "Normalize")

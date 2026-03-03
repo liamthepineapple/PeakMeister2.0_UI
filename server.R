@@ -4234,7 +4234,7 @@ server <- function(input, output, session){
   observeEvent(input$normalize, {
     showModal(modalDialog(
       title = "Normalization Options",
-      selectInput("normalize_by", "Normalize By", choices = c("114.0667_Creatinine", "184.0774_F-Phe", "216.0427_Cl-Tyr", "214.0271_Cl-Tyr")),
+      selectInput("normalize_by", "Normalize By", choices = c("114.0667_Creatinine", "184.0774_F-Phe", "216.0427_Cl-Tyr", "182.0617_F-Phe","198.0566_F-Tyr", "214.0271_Cl-Tyr","207.0115_NMS", "212.9412_Bromohypoxanthine")),
       footer = tagList(
         modalButton("Cancel"),
         actionButton("confirm_normalize", "Normalize")

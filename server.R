@@ -2536,42 +2536,119 @@ server <- function(input, output, session){
   output$plot_table <- DT::renderDataTable({
     data.frame(Plot = filtered_plot_names())
   }, selection = 'single')
-  
+
   #Render the selected plot
   output$selected_plot <- renderPlotly({
     req(input$plot_table_rows_selected)
     selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
     plot <- plotly_data()[[selected_plot_name]]
+    
     if (is.null(plot)) {
       plotly_empty()
     } else {
-      plot %>% event_register("plotly_click") %>% event_register("plotly_relayout")
+      plot %>%
+        layout(dragmode = "zoom") %>%
+        config(modeBarButtonsToAdd = list("drawrect")) %>%
+        event_register("plotly_click") %>%
+        event_register("plotly_relayout")
     }
   })
   
   
   ######4.3.2 Functions for dealing with moveable lines on plotlyplots######
-  observeEvent(event_data("plotly_relayout"), {
-    relayout_data <- event_data("plotly_relayout")
+  #Define logic for toggling between drag mode and draw mode for integrating.
+  drag_mode <- reactiveVal("zoom")
+  
+  #Button toggle logic
+  observeEvent(input$draw_mode, {
     
-    if (!is.null(relayout_data[["shapes[0].x0"]])) {
-      line_positions$red <- relayout_data[["shapes[0].x0"]]
-    }
-    
-    if (!is.null(relayout_data[["shapes[1].x0"]])) {
-      line_positions$blue <- relayout_data[["shapes[1].x0"]]
+    #Mode for drawing boxes on plot to highlight regions to integrate between 
+    if (input$draw_mode) {
+      drag_mode("drawrect")
+      print("Mode switched to: drawrect")
+      plotlyProxy("selected_plot", session) %>%
+        plotlyProxyInvoke("relayout", list(dragmode = "drawrect"))
+    } else {
+      
+      #Regular zoom mode for zooming in on peaks
+      drag_mode("zoom")
+      print("Mode switched to: zoom")
+      plotlyProxy("selected_plot", session) %>%
+        plotlyProxyInvoke("relayout", list(dragmode = "zoom"))
     }
   })
   
-  #Display line positions 
+  #Deal with events occuring on the plot (drawing boxes)
+  observeEvent(event_data("plotly_relayout"), {
+    relayout_data <- event_data("plotly_relayout")
+    print(paste("Current drag_mode:", drag_mode()))
+    print(relayout_data)
+    
+    #Lets user keep drawing after first rectangle drawn
+    if (drag_mode() == "drawrect") {
+      print("Re-asserting drawrect mode")
+      plotlyProxy("selected_plot", session) %>%
+        plotlyProxyInvoke("relayout", list(dragmode = "drawrect"))
+    }
+    
+    #Deal with manual dragging of red and blue lines
+    if (!is.null(relayout_data[["shapes[0].x0"]])) {
+      line_positions$red <- relayout_data[["shapes[0].x0"]]
+      print(paste("Red line updated to:", relayout_data[["shapes[0].x0"]]))
+    }
+    if (!is.null(relayout_data[["shapes[1].x0"]])) {
+      line_positions$blue <- relayout_data[["shapes[1].x0"]]
+      print(paste("Blue line updated to:", relayout_data[["shapes[1].x0"]]))
+    }
+    
+    #Draw rectangle to dictate start and end integration points
+    if (!is.null(relayout_data[["shapes"]]) && 
+        any(relayout_data[["shapes"]]$type == "rect")) {
+      
+      shapes_df <- relayout_data[["shapes"]]
+      rect_row <- shapes_df[shapes_df$type == "rect", ]
+      
+      x_start <- min(rect_row$x0, rect_row$x1)
+      x_end   <- max(rect_row$x0, rect_row$x1)
+      
+      print(paste("Rectangle captured - x_start:", x_start, "x_end:", x_end))
+      
+      line_positions$red  <- x_start
+      line_positions$blue <- x_end
+      
+      #Remove rectangle, update red/blue lines
+      plotlyProxy("selected_plot", session) %>%
+        plotlyProxyInvoke("relayout", list(
+          shapes = list(
+            list(
+              type = "line",
+              x0 = x_start, x1 = x_start,
+              y0 = 0, y1 = 1,
+              xref = "x", yref = "paper",
+              line = list(color = "Red", width = 2)
+            ),
+            list(
+              type = "line",
+              x0 = x_end, x1 = x_end,
+              y0 = 0, y1 = 1,
+              xref = "x", yref = "paper",
+              line = list(color = "Blue", width = 2)
+            )
+          )
+        ))
+    }
+  })
+  
+  
+  #Output red and blue line positions.
   output$red_line_position <- renderText({
     paste("Red Line Position (Left Boundary):", line_positions$red)
   })
-  
   output$blue_line_position <- renderText({
     paste("Blue Line Position (Right Boundary):", line_positions$blue)
   })
   
+
   ######4.3.3 Render the annotation data table associated with selecetd plot######
   output$peak_info_table <- DT::renderDataTable({
     req(input$plot_table_rows_selected)
@@ -3449,6 +3526,10 @@ server <- function(input, output, session){
       )
     ))
   }
+  
+  
+  
+  
   
   ######4.7.2 Integration function######
   manual_peak_integration <- function(peak_number){
@@ -4850,6 +4931,9 @@ server <- function(input, output, session){
     #Add class row to transposed data.
     transposed_df <- rbind(class_row, transposed_df)
     rownames(transposed_df)[1] <- "CLASS"
+    
+    #fix order so CLASS is second row
+    transposed_df <- transposed_df[c("PBM Sample ID", "CLASS", rownames(transposed_df)[!rownames(transposed_df) %in% c("PBM Sample ID", "CLASS")]),]
     
     #Save Data
     MetaboloMatrix(transposed_df)

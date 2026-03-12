@@ -335,6 +335,8 @@ ui <- dashboardPage(
                          tabPanel("Plotting",
                        #Display selected plot 
                        plotlyOutput("selected_plot", height = "600px"),
+                       #toggle integration mode to allow for zooming and drawing on the graph
+                       shinyWidgets::materialSwitch("draw_mode", "Draw Mode", status = "primary"),
                        #Line positions
                        textOutput("red_line_position"),
                        textOutput("blue_line_position"),

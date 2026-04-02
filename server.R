@@ -2417,8 +2417,8 @@ server <- function(input, output, session){
   
   ####4. Visualization tab####
   
-  #####4.1 Define reactive expressions#####
-  
+  #####4.1 Define reactive expressions and specific required functions#####
+  ######4.1.1 Define Reactive expressions######
   plot_list_data_values <- reactiveValues(
     plot_list = NULL,
     comment_df = NULL,
@@ -2452,7 +2452,7 @@ server <- function(input, output, session){
 
   
   #Populate the file selector with the uploaded files
-  #Reactive expression to store filtered plot names
+  #Reactive expression to store filtered plot names.Returns only the plot names that belong to the selected .mz5 file, based on the naming pattern.
   filtered_plot_names <- reactive({
     req(input$file_selector)
     plot_names <- names(plotly_data())
@@ -2468,6 +2468,417 @@ server <- function(input, output, session){
   
   #Variable to save edited plot names for rerendering without rerendering ALL plots
   modified_peak_plots <- reactiveValues(names = character())
+  
+  
+  ######4.1.2 SQL Database functions######
+  
+  #Database path helper 
+  get_db_path <- function(results_folder) {
+    file.path(results_folder, "results.sqlite")
+  }
+  
+  #Function for connection to the DB.
+  open_db <- function(results_folder){
+    con <- dbConnect(RSQLite::SQLite(), get_db_path(results_folder))
+    #enable write-ahead logging for better performance
+    dbExecute(con, "PRAGMA journal_mode = WAL")
+    return(con)
+  }
+  
+  #Initialize database scheme -> used once when creating a new database
+  initialize_db <- function(con){
+    
+    #Table for annotation data
+    dbExecute(con, "CREATE TABLE IF NOT EXISTS annotation_data (
+              file_name       TEXT NOT NULL,
+              metabolite      TEXT NOT NULL,
+              peak_number      INTEGER NOT NULL,
+              comment         TEXT,
+              peak_apex_secs  REAL,
+              peak_height     
+              )")
+    #Table for integration data
+    dbExecute(con, "CREATE TABLE IF NOT EXISTS integration_data (
+              file_name     TEXT NOT NULL,
+              metabolite    TEXT NOT NULL,
+              peak_number   INTEGER NOT NULL,
+              mt_seconds    REAL NOT NULL
+              intensity     REAL NOT NULL,
+              baseline      REAL NOT NULL
+    )")
+    #Table for storing x_axis_data, y_axis_data, and label_data components from plot_list
+    dbExecute(con, "CREATE TABLE IF NOT EXISTS plot_axis_data (
+              file_name     TEXT NOT NULL,
+              metabolite    TEXT NOT NULL,
+              x_start       REAL,
+              x_end         REAL,
+              y_max_annot   REAL,
+              y_max_eie     REAL,
+              label_name    TEXT,
+              label_mz      TEXT
+    )")
+    #Table for storing peak_df from peakmeister enginine loop
+    dbExecute(con, "CREATE TABLE IF NOT EXISTS peaks_df (
+              file_name       TEXT NOT NULL,
+              metabolite      TEXT NOT NULL,
+              peak_number     INTEGER NOT NULL,
+              start_seconds   REAL,
+              apex_seconds    REAL,
+              end_seconds     REAL,
+              start_intensity REAL,
+              apex_intensity  REAL,
+              end_intensity   REAL,
+              peak_area       TEXT
+    )")
+    #Table for storing peak_area_df information
+    dbExecute(con, "CREATE TABLE IF NOT EXISTS peak_area_df (
+              file_name     TEXT NOT NULL,
+              peak_number   INTEGER NOT NULL,
+              metabolite    TEXT NOT NULL,
+              peak_area     TEXT
+    )")
+    #Table for storing peak_mt_df information
+    dbExectue(con, "CREATE TABLE IF NOT EXISTS peak_mt_df (
+              file_name       TEXT NOT NULL,
+              peak_number     INTEGER NOT NULL,
+              metabolite      TEXT NOT NULL,
+              migration_time  REAL
+    )")
+    #Table for storing mi_df information
+    dbExecute(con, "CREATE TABLE IF NOT EXISTS mi_df (
+              metabolite    TEXT NOT NULL,
+              left_is       TEXT,
+              right_is      TEXT,
+              description   TEXT,
+              peak_indices  TEXT,
+    )")
+    #Table for tracking edits
+    dbExecute(con, "CREATE TABLE IF NOT EXISTS edit_log(
+              id            INTEGER PRIMARY KEY AUTOINCREMENT,
+              file_name     TEXT NOT NULL,
+              metabolite    TEXT_NOT_NULL,
+              edit_type     TEXT NOT NULL,
+              edited_at     TEXT NOT NULL
+    )")
+    
+    #Create indexes for speed of access
+    dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_ann    ON annotation_data(file_name, metabolite)")
+    dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_intg   ON integration_data(file_name, metabolite)")
+    dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_axis   ON plot_axis_data(file_name, metabolite)")
+    dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_peaks  ON peaks_df(file_name, metabolite)")
+    dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_area   ON peak_area_df(file_name, metabolite)")
+    dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_mt     ON peak_mt_df(file_name, metabolite")
+  }
+  
+  #Function for wide -> long pivitors
+  safe_col <- function(df, col){
+    if (col %in% colnames(df)) df[[col]] else rep(NA_real_, nrow(df))
+  }
+  
+  #Function to write/add each datafiles data into the SQL database, one datafile at a time as its generated
+  write_file_to_db <- function(con, file_name, plot_list, peaks_df, peak_area_df, peak_mt_df, comment_df, mi_df) {
+    metabolite_names <- names(plot_list)
+    
+    dbBegin(con)
+    tryCatch({
+      
+      #annotation_data
+      ann_all <- do.call(rbind,lapply(metabolite_names, function(metab) {
+       ann <- plot_list[[metab]]$annotation_data
+       ann_comments <- if (!is.null(comment_df) && metab %in% colnames(comment_df)){
+         comment_df[ann$peak.number,metab]
+       } else {
+         ann$comment
+       }
+         data.frame(
+           file_name        = file_name,
+           metabolite       = metab,
+           peak_number      = ann$peak.number,
+           comment          = as.character(ann_comments),
+           peak_apex_secs   = ann$peak.apex.seconds,
+           peak_height      = ann$peak.height.counts,
+           stringsAsFactors = FALSE
+         )
+      }))
+      dbAppendTable(con, "annotation_data", ann_all)
+      
+      #integration_data
+      intg_list <- lapply(metabolite_names, function(metab) {
+        intg <- plot_list[[metab]]$integration_data
+        if (is.null(intg) || nrow(intg) == 0) return(NULL)
+        intg$peak.number <- as.numeric(as.character(intg$peak.number))
+        data.frame(
+          file_name   = file_name,
+          metabolite  = metab,
+          peak_number = intg$peak.number,
+          mt_seconds  = intg$mt.seconds,
+          intensity   = intg$intensity,
+          baseline    = intg$baseline,
+          stringsAsFactors = FALSE
+        )
+      })
+      intg_all <- do.call(rbind, Filter(Negate(is.null), intg_list))
+      if (!is.null(intg_all) && nrow(intg_all) > 0) {
+        dbAppendTable(con, "integration_data", intg_all)
+      }
+      
+      #plot axis data
+      axis_all <- do.call(rbind, lapply(metabolite_names, function(metab){
+        data.frame(
+          file_name        = file_name,
+          metabolite       = metab,
+          x_start          = plot_list[[metab]]$x_axis_data[1],
+          x_end            = plot_list[[metab]]$x_axis_data[2],
+          y_max_annot      = plot_list[[metab]]$y_axis_data[1],
+          y_max_eie        = plot_list[[metab]]$y_axis_data[2],
+          label_name       = as.character(plot_list[[metab]]$label_data[1]),
+          label_mz         = as.character(plot_list[[metab]]$label_data[2]),
+          stringsAsFactors = FALSE
+        )
+      }))
+      dbAppendTable(con, "plot_axis_data", axis_all)
+      
+      #Peaks_df
+      #Need to pivot this data from wide format to long format
+      # peaks_df (wide -> long)
+      num_peaks  <- nrow(peaks_df)
+      peaks_long <- do.call(rbind, lapply(metabolite_names, function(metab) {
+        data.frame(
+          file_name       = file_name,
+          metabolite      = metab,
+          peak_number     = 1:num_peaks,
+          start_seconds   = suppressWarnings(as.numeric(safe_col(peaks_df, paste0(metab, ".start.seconds")))),
+          apex_seconds    = suppressWarnings(as.numeric(safe_col(peaks_df, paste0(metab, ".apex.seconds")))),
+          end_seconds     = suppressWarnings(as.numeric(safe_col(peaks_df, paste0(metab, ".end.seconds")))),
+          start_intensity = suppressWarnings(as.numeric(safe_col(peaks_df, paste0(metab, ".start_intensity")))),
+          apex_intensity  = suppressWarnings(as.numeric(safe_col(peaks_df, paste0(metab, ".apex_intensity")))),
+          end_intensity   = suppressWarnings(as.numeric(safe_col(peaks_df, paste0(metab, ".end_intensity")))),
+          peak_area       = as.character(safe_col(peaks_df, paste0(metab, ".peak.area"))),
+          stringsAsFactors = FALSE
+        )
+      }))
+      dbAppendTable(con, "peaks_df", peaks_long)
+      
+      #peak_area_df datatable -> also need to change wide - long
+      area_meta_cols <- colnames(peak_area_df)[
+        !(colnames(peak_area_df) %in% c("file.name", "peak.number"))
+      ]
+      peak_area_df_chr <- as.data.frame(peak_area_df)
+      peak_area_df_chr[area_meta_cols] <- lapply(
+        peak_area_df_chr[area_meta_cols], as.character
+      )
+      area_long <- pivot_longer(
+        peak_area_df_chr,
+        cols = all_of(area_meta_cols),
+        names_to = "metabolite", values_to = "peak_area"
+      )
+      area_long$file_name <- file_name
+      area_long$peak_area <- as.character(area_long$peak_area)
+      area_long <- area_long[, c("file_name", "peak.number", "metabolite", "peak_area")]
+      colnames(area_long)[2] <- "peak_number"
+      dbAppendTable(con, "peak_area_df", area_long)
+      
+      #peak_mt_df
+      mt_meta_cols <- colnames(peak_mt_df)[
+        !(colnames(peak_mt_df) %in% c("file.name","peak.number"))
+      ]
+      mt_long <- pivot_longer(
+        as.data.frame(peak_mt_df),
+        cols = all_of(mt_meta_cols),
+        names_to = "metabolite", values_to = "migration_time"
+      )
+      mt_long$file_name <- file_name
+      mt_long <- mt_long[, c("file_name","peak.number","metabolite","migration_time")]
+      colnames(mt_long)[2] <- "peak_number"
+      
+      dbAppendTable(con, "peak_mt_df", mt_long)
+      
+      #mi_df
+      existing_mi <- dbGetQuery(con, "SELECT COUNT(*) FROM mi_df")[[1]]
+      if (existing_mi ==0){
+        fixed_cols <- c("name", "left_is", "right_is","description")
+        peak_cols <- colnames(mi_df)[!(colnames(mi_df) %in% fixed_cols)]
+        mi_all <- do.call(rbind, lapply(1:nrow(mi_df), function(i){
+          data.frame(
+            metabolite = as.character(mi_df$name[i]),
+            left_is    = as.character(mi_df$left_is[i]),
+            right_is   = as.character(mi_df$right_is[i]),
+            description = as.character(mi_df$description[i]),
+            peak_indices = toJSON(
+              as.list(mi_df[i, peak_cols, drop = FALSE]),
+              auto_unbox = TRUE
+            ), 
+            stringsAsFactors = FALSE
+          )
+        }))
+        dbAppendTable(con, "mi_df", mi_all)
+      }
+      
+      dbCommit(con)
+    }, error = function(e){
+      tryCatch(dbRollback(con), error = function(e2) NULL)
+      stop(paste("DB write failed for", file_name, ":", conditionMessage(e)))
+    })
+  }
+  
+  #Read one metabolites plot data from DB and eie_df from .Rdata file
+  read_plot_data_from_db <- function(con, results_folder, file_name, metabolite) {
+    
+    #eie_data: load from .RData
+    rdata_path <- file.path(results_folder, "Data",
+                            paste0(file_name, ".mz5"),
+                            "plot_list_data.RData")
+    env <- new.env()
+    load(rdata_path, envir = env)
+    eie_raw <- env$plot_list[[metabolite]]$eie_data
+    rm(env)
+    
+    eie_db <- data.frame(
+      mt.seconds = eie_raw[[1]],
+      intensity  = eie_raw[[2]],
+      stringsAsFactors = FALSE
+    )
+    colnames(eie_db)[2] <- paste(metabolite, "intensity")
+    
+    #annotation_data
+    ann_db <- dbGetQuery(con,
+                         "SELECT peak_number, comment, peak_apex_secs, peak_height
+     FROM annotation_data
+     WHERE file_name = ? AND metabolite = ?
+     ORDER BY peak_number",
+                         params = list(file_name, metabolite)
+    )
+    colnames(ann_db) <- c("peak.number", "comment",
+                          "peak.apex.seconds", "peak.height.counts")
+    
+    #integration_data: from DB (reflects all edits)
+    intg_db <- dbGetQuery(con,
+                          "SELECT peak_number, mt_seconds, intensity, baseline
+     FROM integration_data
+     WHERE file_name = ? AND metabolite = ?
+     ORDER BY peak_number, mt_seconds",
+                          params = list(file_name, metabolite)
+    )
+    colnames(intg_db) <- c("peak.number", "mt.seconds", "intensity", "baseline")
+    
+    #axis + label data
+    ax_db <- dbGetQuery(con,
+                        "SELECT x_start, x_end, y_max_annot, y_max_eie, label_name, label_mz
+     FROM plot_axis_data
+     WHERE file_name = ? AND metabolite = ?",
+                        params = list(file_name, metabolite)
+    )
+    
+    #peaks_df for this metabolite (used by integration functions)
+    peaks_db <- dbGetQuery(con,
+                           "SELECT peak_number, start_seconds, apex_seconds, end_seconds,
+            start_intensity, apex_intensity, end_intensity, peak_area
+     FROM peaks_df
+     WHERE file_name = ? AND metabolite = ?
+     ORDER BY peak_number",
+                           params = list(file_name, metabolite)
+    )
+    
+    list(
+      eie_data         = eie_db,
+      annotation_data  = ann_db,
+      integration_data = intg_db,
+      label_data       = c(ax_db$label_name, ax_db$label_mz),
+      x_axis_data      = c(ax_db$x_start, ax_db$x_end),
+      y_axis_data      = c(ax_db$y_max_annot, ax_db$y_max_eie),
+      peaks_df_metab   = peaks_db   # single-metabolite peaks for integration use
+    )
+  }
+  
+  #Write edit log entry function
+  log_edit <- function(con, file_name, metabolite, edit_type){
+    dbExecute(con,
+              "INSERT INTO edit_log (file_name, metabolite, edit_type, edited_at) VALUES (?, ?, ?, ?)",
+              params = list(file_name, metabolite, edit_type,
+                            format(Sys.time(), "%Y-%m-%d %H:%M:%S"))
+              )
+  }
+  
+  #Build SQL database 
+  migrate_rdata_to_db <- function(results_folder, progress_callback = NULL) {
+    
+    db_path <- get_db_path(results_folder)
+    con     <- dbConnect(RSQLite::SQLite(), db_path)
+    initialize_db(con)
+    
+    data_dir    <- file.path(results_folder, "Data")
+    subfolders  <- list.dirs(data_dir, full.names = TRUE, recursive = FALSE)
+    rdata_files <- subfolders[file.exists(
+      file.path(subfolders, "plot_list_data.RData")
+    )]
+    
+    total   <- length(rdata_files)
+    success <- 0
+    failed  <- character(0)
+    
+    for (i in seq_along(rdata_files)) {
+      subfolder  <- rdata_files[i]
+      # file_name is the folder name WITHOUT .mz5 extension
+      folder_name <- basename(subfolder)
+      file_name   <- sub("\\.mz5$", "", folder_name)
+      
+      if (!is.null(progress_callback)) {
+        progress_callback(i, total, file_name)
+      }
+      
+      # Skip if already in DB
+      already <- dbGetQuery(con,
+                            "SELECT COUNT(*) FROM plot_axis_data WHERE file_name = ?",
+                            params = list(file_name)
+      )[[1]]
+      if (already > 0) {
+        success <- success + 1
+        next
+      }
+      
+      env <- new.env()
+      tryCatch({
+        load(file.path(subfolder, "plot_list_data.RData"), envir = env)
+        write_file_to_db(
+          con          = con,
+          file_name    = file_name,
+          plot_list    = env$plot_list,
+          peaks_df     = env$peaks_df,
+          peak_area_df = env$peak_area_df,
+          peak_mt_df   = env$peak_mt_df,
+          comment_df   = env$comment_df,
+          mi_df        = env$mi_df
+        )
+        success <- success + 1
+      }, error = function(e) {
+        failed <<- c(failed, file_name)
+        warning("Migration failed for ", file_name, ": ", conditionMessage(e))
+      })
+      rm(env); gc()
+    }
+    
+    dbDisconnect(con)
+    list(total = total, success = success, failed = failed)
+  }
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
   
   #####4.2 Environmental initialization: File upload, and folder selection#####
   
@@ -4038,40 +4449,6 @@ server <- function(input, output, session){
     data.frame(Plot = filtered_plot_names())
   }, selection = 'single')
 
-  # #Observe selected plots and render a combined subplot of these functions to zoom in on peaks
-  # observeEvent({
-  #   #Wait for input on both plottable1 and plottable2 before executing the code. 
-  #   input$plottable1_rows_selected
-  #   input$plottable2_rows_selected
-  # }, {
-  #   req(input$plottable1_rows_selected, input$plottable2_rows_selected)
-  #   selected_plotname1 <- filtered_plot_names()[input$plottable1_rows_selected]
-  #   selected_plotname2 <- filtered_plot_names()[input$plottable2_rows_selected]
-  #   plot1 <- plotly_data()[[selected_plotname1]]
-  #   plot2 <- plotly_data()[[selected_plotname2]]
-  # 
-  #   #Create title for plot
-  #   base_file_name <- sub("\\.mz5$", "", input$file_selector)
-  #   plotname1 <- sub(paste0("^", base_file_name, "_"), "", selected_plotname1)
-  #   plotname2 <- sub(paste0("^", base_file_name, "_"), "", selected_plotname2)
-  #   combined_title <- paste("EIE of", plotname1, "(top) and", plotname2, "(bottom)")
-  #   
-  #   #Combine plots into a subplot 
-  #   output$combined_plot <- renderPlotly({
-  #     if (is.null(plot1) || is.null(plot2)) {
-  #       plotly_empty()
-  #     } else {
-  #       subplot(plot1, plot2, nrows = 2, shareX = TRUE, titleX = TRUE, titleY = TRUE) %>%
-  #         layout(
-  #           title = combined_title,
-  #           xaxis = list(title = "X-axis"),
-  #           yaxis = list(title = "Y-axis"),
-  #           xaxis2 = list(title = "X-axis"),
-  #           yaxis2 = list(title = "Y-axis")
-  #         )
-  #     }
-  #   }) 
-  # })
   
   #Observe selected plots and render a combined subplot of these functions to zoom in on peaks
   observe({
@@ -4956,8 +5333,107 @@ server <- function(input, output, session){
   })
   
   
-}#Closing bracket
+  
+  ####7. Drug Analysis Tab####
+  #for now i think I will start from the adherence data structure -> will build in the adherence code later?
+  #7.1 Load data and define reactive values
+  
+  #Reactive values
+  adherence_patient_data <- reactiveVal(NULL)
+  drugbank_db <- reactiveVal(NULL)
+  twosides_db <- reactiveVal(NULL)
+  
+  
+  #Load adherence data
+  observeEvent(input$adherence_results,
+               {
+                req(input$adherence_results)
+                 #load data from uploaded file
+                 adherence_patient_data(readxl::read_excel(input$adherence_results$datapath))
+               })
   
 
-
-
+  #Load drug data 
+  observeEvent(input$drug_databases, {
+                 #Load TWOSIDES database
+    twosides_db(parseTWOSIDES("Drug_Data/TWOSIDES.csv.gz"))
+    print("Loaded TWOSIDES")
+    
+    print("Checking for Drug Databank")
+    
+    #Check for .rds DrugBank file
+    #If present, load into reactive value
+    if (file.exists("Drug_Data/drugbank_db.rds")){
+      drugbank_db(readRDS("Drug_Data/drugbank_db.rds"))
+      
+      print(".RDS found. Data loaded")
+    } else{
+      print("Data not found, parse?")
+      #Show modal for asking if users want to parse the database
+      showModal(modalDialog(
+        title = "DrugBank Database Not Found", "Parse now?",
+        tags$br(), tags$br(),
+        tags$b("Estimated time: 30-40 min."),
+        footer = tagList(
+          modalButton("No (skip)"),
+          actionButton("confirm_parse_drugbank", "Yes, parse now",class = "btn-primary")
+        )
+      ))
+    }
+  })
+  
+  observeEvent(input$confirm_parse_drugbank,{
+    removeModal()
+    
+    #Initialize waiter loading screen
+    initial_message <- sample(loading_messages, 1)
+    waiter_show(
+      html = tagList(
+        spin_flower(),
+        h4(id = "loading-message", initial_message, style = "color:black;")
+      ),
+      color = "rgba(210,210,210,0.7)"
+    )
+    
+    #Java script for switching between different loading messages
+    js_script <- sprintf("
+    setTimeout(function() {
+      var messages = %s;
+      function updateMessage() {
+        var elem = document.getElementById('loading-message');
+        if (elem) {
+          var newMessage = messages[Math.floor(Math.random() * messages.length)];
+          elem.innerText = newMessage;
+        }
+      }
+      setInterval(updateMessage, 4000); // Update every 5 seconds
+    }, 2000);
+  ", jsonlite::toJSON(loading_messages, auto_unbox = TRUE))
+    runjs(js_script)
+    
+    #Exclude drugabnk catagories we dont need
+    exclude <- c("manufacturers", "prices", "atc_codes", "international_brands", 
+                 "mixtures", "packagers", "calculated_properties", "pdb_entries","patents","external_links", "atc_codes","sequences","external_identifiers","pdb_entries","ahfs_codes","snp_adverse_reactions", "snp_effects")
+    
+    #parse drugbank
+    drugbank <- parseDrugBank(
+      db_path = "Drug_Data/full database.xml",
+      drug_options = setdiff(drug_node_options(), exclude),
+      parse_salts = FALSE,
+      parse_products = FALSE,
+      references_options = NULL,
+      cett_options = c("targets", "enzymes", "transporters")
+    )
+    
+    #Save file
+    saveRDS(drugbank, "Drug_Data/drugbank_db.rds")
+    drugbank_db(drugbank)
+    
+    #hide waiter and confirm
+    waiter_hide()
+    showNotification("DrugBank loaded and saved successfully!", type = "message")
+  })
+  
+    
+}#Closing bracket
+  

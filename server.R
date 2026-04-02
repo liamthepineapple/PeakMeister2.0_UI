@@ -2477,6 +2477,11 @@ server <- function(input, output, session){
     file.path(results_folder, "results.sqlite")
   }
   
+  #Check if DB exists in results folder
+  db_exists <- function(results_folder){
+    file.exists(get_db_path(results_folder))
+  }
+  
   #Function for connection to the DB.
   open_db <- function(results_folder){
     con <- dbConnect(RSQLite::SQLite(), get_db_path(results_folder))
@@ -2538,7 +2543,7 @@ server <- function(input, output, session){
               peak_area     TEXT
     )")
     #Table for storing peak_mt_df information
-    dbExectue(con, "CREATE TABLE IF NOT EXISTS peak_mt_df (
+    dbExecute(con, "CREATE TABLE IF NOT EXISTS peak_mt_df (
               file_name       TEXT NOT NULL,
               peak_number     INTEGER NOT NULL,
               metabolite      TEXT NOT NULL,
@@ -2861,25 +2866,6 @@ server <- function(input, output, session){
     list(total = total, success = success, failed = failed)
   }
   
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
   #####4.2 Environmental initialization: File upload, and folder selection#####
   
   #Function to select files based on uploaded .mz5 files
@@ -2924,6 +2910,120 @@ server <- function(input, output, session){
     updateSelectInput(session,"results_folder",choices  = new_choices,
       selected = if (current %in% new_choices) current else new_choices[1])
   })
+  
+  #Database Modal
+  db_con <- reactiveVal(NULL)
+  
+  #Deal with changing results folder
+  observeEvent(input$results_folder, {
+    req(input$results_folder)
+    
+    # Close previous connection if open
+    old_con <- db_con()
+    if (!is.null(old_con)) {
+      tryCatch(dbDisconnect(old_con), error = function(e) NULL)
+      db_con(NULL)
+    }
+    
+    folder <- input$results_folder
+    
+    if (db_exists(folder)) {
+      # DB exists — open it and we're done
+      con <- open_db(folder)
+      db_con(con)
+      cat("DB connected:", get_db_path(folder), "\n")
+      
+    } else {
+      # No DB found — offer migration
+      rdata_count <- length(list.dirs(
+        file.path(folder, "Data"),
+        full.names = TRUE, recursive = FALSE
+      ))
+      
+      showModal(modalDialog(
+        title = "Database Not Found",
+        tags$p(
+          "No database found for this Results folder.",
+          tags$br(),
+          paste0("Found ", rdata_count,
+                 " processed data file(s) that can be migrated.")
+        ),
+        tags$p(
+          "Would you like to build the database now from your existing data?",
+          tags$br(),
+          tags$em("This only needs to be done once per Results folder.")
+        ),
+        footer = tagList(
+          modalButton("No — skip for now"),
+          actionButton("confirm_migration", "Yes — build database",
+                       class = "btn-primary")
+        ),
+        easyClose = FALSE
+      ))
+    }
+  }, ignoreNULL = TRUE)
+  
+  # Handle migration confirmation
+  observeEvent(input$confirm_migration, {
+    removeModal()
+    req(input$results_folder)
+    folder <- input$results_folder
+    
+    #Show progress modal
+    showModal(modalDialog(
+      title = "Building Database",
+      tags$p("Migrating your existing data to the database..."),
+      tags$p(id = "migration_progress", "Starting..."),
+      footer = NULL,
+      easyClose = FALSE
+    ))
+    
+    withProgress(message = "Building database from existing data", value = 0, {
+      result <- migrate_rdata_to_db(
+        results_folder    = folder,
+        progress_callback = function(i, total, file_name) {
+          incProgress(
+            amount  = 1 / total,
+            detail  = paste("Processing:", file_name,
+                            paste0("(", i, "/", total, ")"))
+          )
+        }
+      )
+    })
+    
+    removeModal()
+    
+    if (length(result$failed) == 0) {
+      showNotification(
+        paste0("Database built successfully! ",
+               result$success, " file(s) migrated."),
+        type     = "message",
+        duration = 5
+      )
+    } else {
+      showNotification(
+        paste0("Migration complete. ", result$success, " succeeded, ",
+               length(result$failed), " failed: ",
+               paste(result$failed, collapse = ", ")),
+        type     = "warning",
+        duration = 10
+      )
+    }
+    
+    #Open new database with open_db and store connection in reactive variable.
+    con <- open_db(folder)
+    db_con(con)
+    cat("DB built and connected:", get_db_path(folder), "\n")
+  })
+  
+  #Clean up DB connection when session ends
+  session$onSessionEnded(function() {
+    con <- isolate(db_con())
+    if (!is.null(con)) {
+      tryCatch(dbDisconnect(con), error = function(e) NULL)
+    }
+  })
+  
   
   #Print results folder in console just to confirm that user is in correct place. 
   observeEvent(input$results_folder, {

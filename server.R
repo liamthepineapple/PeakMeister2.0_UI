@@ -2390,8 +2390,77 @@ server <- function(input, output, session){
       #Save the entire plot_list to a .RData file in the subfolder as well as peaks_df
       save(plot_list, peaks_df, mi_df, peak_mt_df,peak_area_df, comment_df, file = file.path(subfolder_path, "plot_list_data.RData"))
       
+      # #Save data to SQL databasetr
+      # tryCatch({
+      #   db_path_pipeline <- get_db_path(file_name)
+      #   pipeline_con <- dbConnect(SQLite(), db_path_pipeline)
+      #   dbExecute(pipeline_con, "PRAGMA journal_mode = WAL")
+      #   
+      #   initialize_db(pipeline_con)
+      #   
+      #   for (tbl in c("annotation_data", "integration_data","plot_axis_data", "peaks_df","peak_area_df","peak_mt_df")){
+      #     dbExecute(pipeline_con,
+      #               paste0("DELETE FROM ", tbl, " WHERE file_name = ?"),
+      #               params = list(data_files_name[d])
+      #               )
+      #   }
+      #   
+      #   tryCatch({
+      #     write_file_to_db(
+      #       con          = pipeline_con,
+      #       file_name    = data_files_name[d],
+      #       plot_list    = plot_list,
+      #       peaks_df     = peaks_df,
+      #       peak_area_df = peak_area_df,
+      #       peak_mt_df   = peak_mt_df,
+      #       comment_df   = comment_df,
+      #       mi_df        = mi_df
+      #     )
+      #   }, error = function(e) {
+      #     cat("EXACT ERROR:", conditionMessage(e), "\n")
+      #     cat("TRACEBACK:\n")
+      #     traceback()
+      #   })
+      #   
+      #   
+      #   dbDisconnect(pipeline_con)
+      #   print(paste("DB write complete for:", data_files_name[d]))
+      # }, error = function(e){
+      #     warning("DB write failed for", data_files_name[d],
+      #             "- .RData still saved. Error:", conditionMessage(e))
+      #   })
+      # 
+      
+      db_path_pipeline <- get_db_path(file_name)
+      pipeline_con <- dbConnect(SQLite(), db_path_pipeline)
+      dbExecute(pipeline_con, "PRAGMA journal_mode = WAL")
+      
+      initialize_db(pipeline_con)
+      
+      for (tbl in c("annotation_data", "integration_data","plot_axis_data", "peaks_df","peak_area_df","peak_mt_df")){
+        dbExecute(pipeline_con,
+                  paste0("DELETE FROM ", tbl, " WHERE file_name = ?"),
+                  params = list(data_files_name[d])
+        )
+      }
+      
+      write_file_to_db(
+        con          = pipeline_con,
+        file_name    = data_files_name[d],
+        plot_list    = plot_list,
+        peaks_df     = peaks_df,
+        peak_area_df = peak_area_df,
+        peak_mt_df   = peak_mt_df,
+        comment_df   = comment_df,
+        mi_df        = mi_df
+      )
+      
+      dbDisconnect(pipeline_con)
+      print(paste("DB write complete for:", data_files_name[d]))
+      
+      
+      
       #Delete temporary mz5 file
-    
       file.remove(paste(file, "temp.mz5", sep = "_"))
   
       print(paste("Completed Analysis of Data File: ", data_file_names[d], sep = ""))
@@ -2507,7 +2576,7 @@ server <- function(input, output, session){
               file_name     TEXT NOT NULL,
               metabolite    TEXT NOT NULL,
               peak_number   INTEGER NOT NULL,
-              mt_seconds    REAL NOT NULL
+              mt_seconds    REAL NOT NULL,
               intensity     REAL NOT NULL,
               baseline      REAL NOT NULL
     )")
@@ -2555,7 +2624,7 @@ server <- function(input, output, session){
               left_is       TEXT,
               right_is      TEXT,
               description   TEXT,
-              peak_indices  TEXT,
+              peak_indices  TEXT
     )")
     #Table for tracking edits
     dbExecute(con, "CREATE TABLE IF NOT EXISTS edit_log(
@@ -2572,7 +2641,7 @@ server <- function(input, output, session){
     dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_axis   ON plot_axis_data(file_name, metabolite)")
     dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_peaks  ON peaks_df(file_name, metabolite)")
     dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_area   ON peak_area_df(file_name, metabolite)")
-    dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_mt     ON peak_mt_df(file_name, metabolite")
+    dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_mt     ON peak_mt_df(file_name, metabolite)")
   }
   
   #Function for wide -> long pivitors

@@ -6,7 +6,7 @@
 if (!require("pacman", quietly = TRUE)) install.packages("pacman")
 if (!require("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 
-pacman::p_load("shiny","shinyBS", "tools","waiter","shinyFiles","RColorBrewer","shinycssloaders", "shinydashboard", "DT", "shinyalert","ggplot2","ggpubr", "plotly","hash","pracma", "tidyverse", "stats", "DescTools", "xcms", "rlang","markdown", "openxlsx","readxl","writexl","fontawesome", "MSnbase", "mzR","shinyjs","FactoMineR", "factoextra","jsonlite","remotes",
+pacman::p_load("shiny","shinyBS", "tools","waiter","shinyFiles","RColorBrewer","shinycssloaders", "shinydashboard", "DT", "shinyalert","ggpubr", "plotly","hash","pracma", "tidyverse", "stats", "DescTools", "xcms", "rlang","markdown", "openxlsx","readxl","writexl","fontawesome", "MSnbase", "mzR","shinyjs","FactoMineR", "factoextra","jsonlite","remotes","dbparser","R.utils","RSQLite","DBI",
                install = TRUE)
 
 #Title of app
@@ -46,7 +46,11 @@ ui <- dashboardPage(
       #Reporting tab for exporting results/outputting true detections
       menuItem("Reporting",
         tabName = "reporting",
-        icon = icon("file-export"))
+        icon = icon("file-export")),
+      #Drug analysis tab for assesing adherence and outputting results of potential drug interactions
+      menuItem("Drug Analysis",
+               tabName = "drugs",
+               icon = icon("pills"))
     )
   ),
   #### 3. About Main Tab Content####
@@ -493,7 +497,22 @@ ui <- dashboardPage(
                  dataTableOutput("matrix_table")
                 )
               )
-            )
+            ),
+      
+      ####9. Drug Analysis Tab####
+      tabItem(
+        tabName = "drugs",
+        fluidRow(
+          column(3,
+                 #load adhernece results if not already present
+                 fileInput("adherence_results", "Upload Adherence Results (Excel)", accept = c(".xlsx")),
+                 #load drugbank data and drug interaction data
+                 HTML("<p><strong>Note:</strong> Users must acquire drug databases independently.<p>"),
+                 actionButton("drug_databases", "Load Drug Databases")
+                 )
+        )
+      )
+      
           ),
     #Display logo at bottom right of page 
     tags$div(

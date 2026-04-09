@@ -3297,6 +3297,14 @@ server <- function(input, output, session){
       y_axis_data      = plot_data$y_axis_data
     )
     
+    #Restore zoom state if one exists -> so that the plot doesnt reset every single time you make an edit.
+    if (!is.null(zoom_state$xmin)) {
+      plot <- plot %>% layout(
+        xaxis = list(range = c(zoom_state$xmin, zoom_state$xmax)),
+        yaxis = list(range = c(zoom_state$ymin, zoom_state$ymax))
+      )
+    }
+    
     plot %>%
       layout(dragmode = "zoom") %>%
       config(modeBarButtonsToAdd = list("drawrect")) %>%
@@ -3326,6 +3334,30 @@ server <- function(input, output, session){
       print("Mode switched to: zoom")
       plotlyProxy("selected_plot", session) %>%
         plotlyProxyInvoke("relayout", list(dragmode = "zoom"))
+    }
+  })
+  
+  #Store zoom state reactively when user zooms so we can regenerate the plots without zooming out -> required for efficiency
+  zoom_state <- reactiveValues(
+    xmin = NULL, xmax = NULL,
+    ymin = NULL, ymax = NULL
+  )
+  
+  #Capture zoom from relayout events for regenerating plot.
+  observeEvent(event_data("plotly_relayout"), {
+    rd <- event_data("plotly_relayout")
+    if (!is.null(rd[["xaxis.range[0]"]])) {
+      zoom_state$xmin <- rd[["xaxis.range[0]"]]
+      zoom_state$xmax <- rd[["xaxis.range[1]"]]
+      zoom_state$ymin <- rd[["yaxis.range[0]"]]
+      zoom_state$ymax <- rd[["yaxis.range[1]"]]
+    }
+    # Reset on double-click (autosize)
+    if (!is.null(rd[["xaxis.autorange"]])) {
+      zoom_state$xmin <- NULL
+      zoom_state$xmax <- NULL
+      zoom_state$ymin <- NULL
+      zoom_state$ymax <- NULL
     }
   })
   

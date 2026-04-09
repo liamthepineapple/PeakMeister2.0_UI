@@ -2373,7 +2373,6 @@ server <- function(input, output, session){
       }
       
       
-      
       ######3.12.2 Generate peak migration time data frame######
       
       peak_mt_df <- cbind("file.name" = c(data_files_name[d], rep("", num_of_injections - 1)),
@@ -2390,47 +2389,7 @@ server <- function(input, output, session){
       #Save the entire plot_list to a .RData file in the subfolder as well as peaks_df
       save(plot_list, peaks_df, mi_df, peak_mt_df,peak_area_df, comment_df, file = file.path(subfolder_path, "plot_list_data.RData"))
       
-      # #Save data to SQL databasetr
-      # tryCatch({
-      #   db_path_pipeline <- get_db_path(file_name)
-      #   pipeline_con <- dbConnect(SQLite(), db_path_pipeline)
-      #   dbExecute(pipeline_con, "PRAGMA journal_mode = WAL")
-      #   
-      #   initialize_db(pipeline_con)
-      #   
-      #   for (tbl in c("annotation_data", "integration_data","plot_axis_data", "peaks_df","peak_area_df","peak_mt_df")){
-      #     dbExecute(pipeline_con,
-      #               paste0("DELETE FROM ", tbl, " WHERE file_name = ?"),
-      #               params = list(data_files_name[d])
-      #               )
-      #   }
-      #   
-      #   tryCatch({
-      #     write_file_to_db(
-      #       con          = pipeline_con,
-      #       file_name    = data_files_name[d],
-      #       plot_list    = plot_list,
-      #       peaks_df     = peaks_df,
-      #       peak_area_df = peak_area_df,
-      #       peak_mt_df   = peak_mt_df,
-      #       comment_df   = comment_df,
-      #       mi_df        = mi_df
-      #     )
-      #   }, error = function(e) {
-      #     cat("EXACT ERROR:", conditionMessage(e), "\n")
-      #     cat("TRACEBACK:\n")
-      #     traceback()
-      #   })
-      #   
-      #   
-      #   dbDisconnect(pipeline_con)
-      #   print(paste("DB write complete for:", data_files_name[d]))
-      # }, error = function(e){
-      #     warning("DB write failed for", data_files_name[d],
-      #             "- .RData still saved. Error:", conditionMessage(e))
-      #   })
-      # 
-      
+      #Create SQL database if one doesnt exist and save all data to it for each file.
       db_path_pipeline <- get_db_path(file_name)
       pipeline_con <- dbConnect(SQLite(), db_path_pipeline)
       dbExecute(pipeline_con, "PRAGMA journal_mode = WAL")
@@ -2443,7 +2402,7 @@ server <- function(input, output, session){
                   params = list(data_files_name[d])
         )
       }
-      
+      #Write data to SQL database
       write_file_to_db(
         con          = pipeline_con,
         file_name    = data_files_name[d],
@@ -2456,8 +2415,7 @@ server <- function(input, output, session){
       )
       
       dbDisconnect(pipeline_con)
-      print(paste("DB write complete for:", data_files_name[d]))
-      
+      print(paste("database write complete for:", data_files_name[d]))
       
       
       #Delete temporary mz5 file
@@ -2467,7 +2425,6 @@ server <- function(input, output, session){
       print("")
       
       ######3.12.3 Export data######
-      
       write.csv(peak_area_report,
                 file = paste(file_name, "/", "Metabolite Peak Areas.csv", sep = ""),
                 row.names = FALSE)
@@ -2489,12 +2446,35 @@ server <- function(input, output, session){
   #####4.1 Define reactive expressions and specific required functions#####
   ######4.1.1 Define Reactive expressions######
   plot_list_data_values <- reactiveValues(
-    plot_list = NULL,
-    comment_df = NULL,
-    peaks_df = NULL,
-    peak_mt_df = NULL,
-    peak_area_df = NULL,
-    mi_df = NULL
+    plot_list      = NULL,
+    comment_df     = NULL,
+    peaks_df       = NULL,
+    peak_mt_df     = NULL,
+    peak_area_df   = NULL,
+    mi_df          = NULL,
+    file_name      = NULL
+  )
+  
+  #Define reactive values for storing information from plot_list_data.Rdata
+  run_metadata <- reactiveValues(
+    comment_df    = NULL,
+    plot_list     = NULL,
+    peaks_df      = NULL,
+    peak_mt_df    = NULL,
+    peak_area_df  = NULL,
+    mi_df         = NULL,
+    file_name     = NULL
+  )
+  
+  #Define reactive expression to store unaltered peak information to allow users to undo a deletion if a peak is deleted accidentally 
+  previous_metadata <- reactiveValues(
+    comment_df    = NULL,
+    plot_list     = NULL,
+    peaks_df      = NULL,
+    peak_mt_df    = NULL,
+    peak_area_df  = NULL,
+    mi_df         = NULL,
+    file_name     = NULL
   )
   
   #Reactive expression to store the path to the selected results folder. Required to grab the correct annotation_data information from the subsequent runs and useful for processing data if you have closed the app.
@@ -2520,23 +2500,29 @@ server <- function(input, output, session){
   })
 
   
-  #Populate the file selector with the uploaded files
-  #Reactive expression to store filtered plot names.Returns only the plot names that belong to the selected .mz5 file, based on the naming pattern.
+  #Reactive expression to get the plot names associated with a specified .mz5 file from the SQL database, based on the naming pattern.
   filtered_plot_names <- reactive({
-    req(input$file_selector)
-    plot_names <- names(plotly_data())
-    base_file_name <- sub("\\.mz5$", "", input$file_selector)
-    plot_names[grepl(paste0("^", base_file_name, "_"), plot_names)]
+    req(db_con(), input$file_selector)
+    con       <- db_con()
+    file_name <- sub("\\.mz5$", "", input$file_selector)
+    tryCatch({
+      metabolites <- dbGetQuery(con,
+                                "SELECT DISTINCT metabolite FROM plot_axis_data
+         WHERE file_name = ?
+         ORDER BY metabolite",
+                                params = list(file_name)
+      )$metabolite
+      #Return in same format as before: "<file>_<metabolite>"
+      paste0(file_name, "_", metabolites)
+    }, error = function(e) character(0))
   })
   
-  #Define reactive values for storing information from plot_list_data.Rdata
-  run_metadata <- reactiveValues(comment_df = NULL, plot_list = NULL, peaks_df = NULL, peak_mt_df = NULL, peak_area_df = NULL, mi_df = NULL)
-  
-  #Define reactive expression to store unaltered peak information to allow users to undo a deletion if a peak is deleted accidentally 
-  previous_metadata <- reactiveValues(comment_df = NULL, plot_list = NULL, peaks_df = NULL, peak_mt_df = NULL, peak_area_df = NULL, mi_df = NULL)
   
   #Variable to save edited plot names for rerendering without rerendering ALL plots
   modified_peak_plots <- reactiveValues(names = character())
+  
+  #Variable to trigger plots reloading after editing them
+  plot_render_trigger <- reactiveVal(0)
   
   
   ######4.1.2 SQL Database functions######
@@ -2546,12 +2532,12 @@ server <- function(input, output, session){
     file.path(results_folder, "results.sqlite")
   }
   
-  #Check if DB exists in results folder
+  #Check if database exists in results folder
   db_exists <- function(results_folder){
     file.exists(get_db_path(results_folder))
   }
   
-  #Function for connection to the DB.
+  #Function for connection to the database
   open_db <- function(results_folder){
     con <- dbConnect(RSQLite::SQLite(), get_db_path(results_folder))
     #enable write-ahead logging for better performance
@@ -2559,9 +2545,10 @@ server <- function(input, output, session){
     return(con)
   }
   
-  #Initialize database scheme -> used once when creating a new database
+  #Function for initializing the SQL database, creating all tables and indexes for increased efficiency.
   initialize_db <- function(con){
     
+  #Create tables for storing all components of the plot_list_data RData file/ allrequired files generated from running the main peakmeister loop  
     #Table for annotation data
     dbExecute(con, "CREATE TABLE IF NOT EXISTS annotation_data (
               file_name       TEXT NOT NULL,
@@ -2635,7 +2622,7 @@ server <- function(input, output, session){
               edited_at     TEXT NOT NULL
     )")
     
-    #Create indexes for speed of access
+    #Create indexes on (filename, metabolite) for every table for optimal data access 
     dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_ann    ON annotation_data(file_name, metabolite)")
     dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_intg   ON integration_data(file_name, metabolite)")
     dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_axis   ON plot_axis_data(file_name, metabolite)")
@@ -2649,7 +2636,7 @@ server <- function(input, output, session){
     if (col %in% colnames(df)) df[[col]] else rep(NA_real_, nrow(df))
   }
   
-  #Function to write/add each datafiles data into the SQL database, one datafile at a time as its generated
+  #Function to write/add each datafiles data into the SQL database, one datafile at a time as its generated in the main PeakMeister loop OR when generating a SQL file from preexisting .RData files
   write_file_to_db <- function(con, file_name, plot_list, peaks_df, peak_area_df, peak_mt_df, comment_df, mi_df) {
     metabolite_names <- names(plot_list)
     
@@ -2712,9 +2699,7 @@ server <- function(input, output, session){
       }))
       dbAppendTable(con, "plot_axis_data", axis_all)
       
-      #Peaks_df
-      #Need to pivot this data from wide format to long format
-      # peaks_df (wide -> long)
+      #Peaks_df data -> Need to pivot this data from wide format to long format
       num_peaks  <- nrow(peaks_df)
       peaks_long <- do.call(rbind, lapply(metabolite_names, function(metab) {
         data.frame(
@@ -2791,17 +2776,18 @@ server <- function(input, output, session){
       dbCommit(con)
     }, error = function(e){
       tryCatch(dbRollback(con), error = function(e2) NULL)
-      stop(paste("DB write failed for", file_name, ":", conditionMessage(e)))
+      stop(paste("Database write failed for", file_name, ":", conditionMessage(e)))
     })
   }
   
-  #Read one metabolites plot data from DB and eie_df from .Rdata file
+  #Read one metabolites plot data from database and eie_df from .Rdata file
   read_plot_data_from_db <- function(con, results_folder, file_name, metabolite) {
     
-    #eie_data: load from .RData
+    #eie_data: load from .RData -> in .Rdata for now since eie_df is the largest dataset for each metabolite. Its never edited so, for now its in here.
     rdata_path <- file.path(results_folder, "Data",
                             paste0(file_name, ".mz5"),
                             "plot_list_data.RData")
+    #Load into new environment 
     env <- new.env()
     load(rdata_path, envir = env)
     eie_raw <- env$plot_list[[metabolite]]$eie_data
@@ -2825,7 +2811,7 @@ server <- function(input, output, session){
     colnames(ann_db) <- c("peak.number", "comment",
                           "peak.apex.seconds", "peak.height.counts")
     
-    #integration_data: from DB (reflects all edits)
+    #integration_data
     intg_db <- dbGetQuery(con,
                           "SELECT peak_number, mt_seconds, intensity, baseline
      FROM integration_data
@@ -2860,11 +2846,11 @@ server <- function(input, output, session){
       label_data       = c(ax_db$label_name, ax_db$label_mz),
       x_axis_data      = c(ax_db$x_start, ax_db$x_end),
       y_axis_data      = c(ax_db$y_max_annot, ax_db$y_max_eie),
-      peaks_df_metab   = peaks_db   # single-metabolite peaks for integration use
+      peaks_df_metab   = peaks_db   
     )
   }
   
-  #Write edit log entry function
+  #Write edit log entry function -> maintains a audit trail...
   log_edit <- function(con, file_name, metabolite, edit_type){
     dbExecute(con,
               "INSERT INTO edit_log (file_name, metabolite, edit_type, edited_at) VALUES (?, ?, ?, ?)",
@@ -2873,7 +2859,7 @@ server <- function(input, output, session){
               )
   }
   
-  #Build SQL database 
+  #Build SQL database from existing .Rdata files. Files already present are skipped.
   migrate_rdata_to_db <- function(results_folder, progress_callback = NULL) {
     
     db_path <- get_db_path(results_folder)
@@ -2892,15 +2878,13 @@ server <- function(input, output, session){
     
     for (i in seq_along(rdata_files)) {
       subfolder  <- rdata_files[i]
-      # file_name is the folder name WITHOUT .mz5 extension
       folder_name <- basename(subfolder)
       file_name   <- sub("\\.mz5$", "", folder_name)
-      
       if (!is.null(progress_callback)) {
         progress_callback(i, total, file_name)
       }
       
-      # Skip if already in DB
+      #Check if file is already in database and skip if need be.
       already <- dbGetQuery(con,
                             "SELECT COUNT(*) FROM plot_axis_data WHERE file_name = ?",
                             params = list(file_name)
@@ -2911,6 +2895,8 @@ server <- function(input, output, session){
       }
       
       env <- new.env()
+      
+      #Loop over files, marking files that failed to load and skipping them.
       tryCatch({
         load(file.path(subfolder, "plot_list_data.RData"), envir = env)
         write_file_to_db(
@@ -2935,6 +2921,115 @@ server <- function(input, output, session){
     list(total = total, success = success, failed = failed)
   }
   
+  
+  #Load databases from SQL database for the selected file in wide format -> written to keep original logic
+  load_wide_data_from_db <- function(con, file_name) {
+    
+    #peaks_df: pivot long -> wide. 7 columns per metabolite
+    peaks_long <- dbGetQuery(con,
+                             "SELECT * FROM peaks_df WHERE file_name = ? ORDER BY metabolite, peak_number",
+                             params = list(file_name)
+    )
+    metabolites <- unique(peaks_long$metabolite)
+    num_peaks   <- max(peaks_long$peak_number)
+    
+    #Make datamatix and fill column by column, matching column names to original peaks_df.
+    peaks_wide <- matrix(NA_real_, nrow = num_peaks,
+                         ncol = length(metabolites) * 7)
+    col_names  <- character(length(metabolites) * 7)
+    for (j in seq_along(metabolites)) {
+      m   <- metabolites[j]
+      sub <- peaks_long[peaks_long$metabolite == m, ]
+      base <- (j - 1) * 7
+      peaks_wide[sub$peak_number, base + 1] <- sub$start_seconds
+      peaks_wide[sub$peak_number, base + 2] <- sub$apex_seconds
+      peaks_wide[sub$peak_number, base + 3] <- sub$end_seconds
+      peaks_wide[sub$peak_number, base + 4] <- sub$start_intensity
+      peaks_wide[sub$peak_number, base + 5] <- sub$apex_intensity
+      peaks_wide[sub$peak_number, base + 6] <- sub$end_intensity
+      peaks_wide[sub$peak_number, base + 7] <- suppressWarnings(
+        as.numeric(sub$peak_area)
+      )
+      col_names[base + (1:7)] <- paste0(m, c(".start.seconds", ".apex.seconds",
+                                             ".end.seconds", ".start_intensity", ".apex_intensity",
+                                             ".end_intensity", ".peak.area"))
+    }
+    peaks_wide_df           <- as.data.frame(peaks_wide)
+    colnames(peaks_wide_df) <- col_names
+    
+    #peak_area_df: pivot long -> wide
+    area_long <- dbGetQuery(con,
+                            "SELECT peak_number, metabolite, peak_area FROM peak_area_df
+       WHERE file_name = ? ORDER BY peak_number, metabolite",
+                            params = list(file_name)
+    )
+    area_wide <- pivot_wider(
+      area_long,
+      names_from  = "metabolite",
+      values_from = "peak_area"
+    )
+    area_wide <- cbind(
+      "file.name"   = c(file_name, rep("", nrow(area_wide) - 1)),
+      "peak.number" = area_wide$peak_number,
+      area_wide[, -1]
+    )
+    
+    #peak_mt_df: pivot long -> wide
+    mt_long <- dbGetQuery(con,
+                          "SELECT peak_number, metabolite, migration_time FROM peak_mt_df
+       WHERE file_name = ? ORDER BY peak_number, metabolite",
+                          params = list(file_name)
+    )
+    mt_wide <- pivot_wider(
+      mt_long,
+      names_from  = "metabolite",
+      values_from = "migration_time"
+    )
+    mt_wide <- cbind(
+      "file.name"   = c(file_name, rep("", nrow(mt_wide) - 1)),
+      "peak.number" = mt_wide$peak_number,
+      mt_wide[, -1]
+    )
+    
+    #comment_df: derived from annotation_data
+    ann_long <- dbGetQuery(con,
+                           "SELECT peak_number, metabolite, comment FROM annotation_data
+       WHERE file_name = ? ORDER BY peak_number, metabolite",
+                           params = list(file_name))
+    comment_wide <- pivot_wider(
+      ann_long,
+      names_from  = "metabolite",
+      values_from = "comment",
+      values_fill = "")
+    comment_df <- as.data.frame(comment_wide[, -1])
+    rownames(comment_df) <- comment_wide$peak_number
+    
+    #mi_df
+    mi_db <- dbGetQuery(con, "SELECT * FROM mi_df")
+    
+    list(
+      peaks_df     = peaks_wide_df,
+      peak_area_df = area_wide,
+      peak_mt_df   = mt_wide,
+      comment_df   = comment_df,
+      mi_df        = mi_db
+    )
+  }
+  
+  #Build full plot_list for current file from database + RData eie data. EIE data stored seperatley since we never need to change it, and it makes the stored SQL file smaller
+  load_plot_list_from_db <- function(con, results_folder, file_name){
+    metabolites <- dbGetQuery(con,
+                              "SELECT DISTINCT metabolite FROM plot_axis_data WHERE file_name =?",
+                              params = list(file_name)
+                              )$metabolite
+    plot_list <- lapply(metabolites, function(metab){
+      read_plot_data_from_db(con, results_folder, file_name, metab)
+    })
+    names(plot_list) <- metabolites
+    plot_list
+  }
+  
+  
   #####4.2 Environmental initialization: File upload, and folder selection#####
   
   #Function to select files based on uploaded .mz5 files
@@ -2942,19 +3037,7 @@ server <- function(input, output, session){
     updateSelectInput(session, "file_selector", choices = uploadedmz5()$FileName)
   })
   
-  #Option to upload a file containing the plotlyData from the dataruns
-  observeEvent(input$RDatainput, {
-    req(input$RDatainput)
-    load(input$RDatainput$datapath)
-    plotly_data(plotly_objects)
-  })
-  
-  #Reset uploaded data
-  observeEvent(input$resetplotlydata, {
-    plotly_data(NULL)
-  })
-  
-  
+
   #List all "Results" folders in the main directory
   list_results_folders <- function() {
     results_folders <- list.dirs(path = ".", full.names = TRUE, recursive = FALSE)
@@ -2962,7 +3045,7 @@ server <- function(input, output, session){
     results_folders
   }
   
-  #This requires the app to periodidically check for new Results folders so that the generated results folder in the app can be retrieved
+  #This requires the app to periodically check for new Results folders so that the generated results folder in the app can be retrieved
   results_folders_reactive <- reactivePoll(5000, session,
                                            checkFunc = function() {
                                              list_results_folders()
@@ -2980,14 +3063,14 @@ server <- function(input, output, session){
       selected = if (current %in% new_choices) current else new_choices[1])
   })
   
-  #Database Modal
+  #Reactive variable holding SQL database connection.-> very important variable for all other SQL functions
   db_con <- reactiveVal(NULL)
   
-  #Deal with changing results folder
+  #Deal with changing results folder and then load database or make database
   observeEvent(input$results_folder, {
     req(input$results_folder)
     
-    # Close previous connection if open
+    #Close previous connection if open
     old_con <- db_con()
     if (!is.null(old_con)) {
       tryCatch(dbDisconnect(old_con), error = function(e) NULL)
@@ -2997,42 +3080,38 @@ server <- function(input, output, session){
     folder <- input$results_folder
     
     if (db_exists(folder)) {
-      # DB exists — open it and we're done
+      #Database exists — open it and we're done
       con <- open_db(folder)
       db_con(con)
-      cat("DB connected:", get_db_path(folder), "\n")
+      cat("Database connected:", get_db_path(folder), "\n")
       
     } else {
-      # No DB found — offer migration
+      #No database found = count number of .Rdata files to be made into a SQL database.
       rdata_count <- length(list.dirs(
         file.path(folder, "Data"),
         full.names = TRUE, recursive = FALSE
       ))
       
+      #Show modal and button options when no SQL database is found for migrating data over to SQL format.
       showModal(modalDialog(
         title = "Database Not Found",
         tags$p(
           "No database found for this Results folder.",
           tags$br(),
-          paste0("Found ", rdata_count,
-                 " processed data file(s) that can be migrated.")
-        ),
+          paste0("Found ", rdata_count," processed data file(s) that can be migrated.")),
         tags$p(
           "Would you like to build the database now from your existing data?",
           tags$br(),
-          tags$em("This only needs to be done once per Results folder.")
-        ),
+          tags$em("This only needs to be done once per Results folder.")),
         footer = tagList(
-          modalButton("No — skip for now"),
-          actionButton("confirm_migration", "Yes — build database",
-                       class = "btn-primary")
-        ),
+          modalButton("No — skip"),
+          actionButton("confirm_migration", "Yes — build database", class = "btn-primary")),
         easyClose = FALSE
       ))
     }
   }, ignoreNULL = TRUE)
   
-  # Handle migration confirmation
+  #Handle migration confirmation
   observeEvent(input$confirm_migration, {
     removeModal()
     req(input$results_folder)
@@ -3082,10 +3161,10 @@ server <- function(input, output, session){
     #Open new database with open_db and store connection in reactive variable.
     con <- open_db(folder)
     db_con(con)
-    cat("DB built and connected:", get_db_path(folder), "\n")
+    cat("Database built and connected:", get_db_path(folder), "\n")
   })
   
-  #Clean up DB connection when session ends
+  #Clean up database connection when session ends
   session$onSessionEnded(function() {
     con <- isolate(db_con())
     if (!is.null(con)) {
@@ -3093,21 +3172,95 @@ server <- function(input, output, session){
     }
   })
   
-  
-  #Print results folder in console just to confirm that user is in correct place. 
-  observeEvent(input$results_folder, {
-    file_name <- if (!is.null(input$file_selector)) input$file_selector else "NA"
-    main_path <- if (!is.null(main_folder())) main_folder() else "NA"
-    subfolder_path <- if (main_path != "NA" && file_name != "NA") {
-      file.path(main_path, "Data", file_name)
-    } else {
-      "NA"
-    }
-    
-    cat("Current results folder:", main_path, "\n")
-    cat("File selector:", file_name, "\n")
-    cat("Subfolder path:", subfolder_path, "\n")
+  #When file selector changes, load all data from database into reactive values
+  observeEvent(input$file_selector, {
+    req(db_con(), input$file_selector)
+    con       <- db_con()
+    folder    <- main_folder()
+    file_name <- sub("\\.mz5$", "", input$file_selector)
+
+    #Load plot_list (eie from .RData, rest from database)
+    plot_list <- tryCatch(
+      load_plot_list_from_db(con, folder, file_name),
+      error = function(e) {
+        showNotification(paste("Error loading data:", conditionMessage(e)),
+                         type = "error")
+        NULL
+      }
+    )
+    req(!is.null(plot_list))
+
+    #Load wide-format data for integration functions
+    wide <- load_wide_data_from_db(con, file_name)
+
+    #Populate reactive values
+    plot_list_data_values$plot_list    <- plot_list
+    plot_list_data_values$comment_df   <- wide$comment_df
+    plot_list_data_values$peaks_df     <- wide$peaks_df
+    plot_list_data_values$peak_mt_df   <- wide$peak_mt_df
+    plot_list_data_values$peak_area_df <- wide$peak_area_df
+    plot_list_data_values$mi_df        <- wide$mi_df
+    plot_list_data_values$file_name    <- file_name
+
+    run_metadata$plot_list    <- plot_list
+    run_metadata$comment_df   <- wide$comment_df
+    run_metadata$peaks_df     <- wide$peaks_df
+    run_metadata$peak_mt_df   <- wide$peak_mt_df
+    run_metadata$peak_area_df <- wide$peak_area_df
+    run_metadata$mi_df        <- wide$mi_df
+    run_metadata$file_name    <- input$file_selector
+
+    cat("Loaded from database:", file_name,
+        "| metabolites:", length(plot_list), "\n")
+
+    plot_render_trigger(plot_render_trigger() + 1)
   })
+  
+#Obsereve block for loading data when app first launches when a results folder is selected and files havent been changed. Required for direct data acquisition after app startup and no file switch.
+  observeEvent(db_con(), {
+    req(db_con(), input$file_selector)
+    con       <- db_con()
+    folder    <- main_folder()
+    file_name <- sub("\\.mz5$", "", input$file_selector)
+    
+    #Load plot list eie_data and editable ddata from database
+    plot_list <- tryCatch(
+      load_plot_list_from_db(con, folder, file_name),
+      error = function(e) {
+        showNotification(paste("Error loading data:", conditionMessage(e)),
+                         type = "error")
+        NULL
+      }
+    )
+    req(!is.null(plot_list))
+    
+    #load data in wide format for integration and editing functions
+    wide <- load_wide_data_from_db(con, file_name)
+    
+    #Populate values
+    plot_list_data_values$plot_list    <- plot_list
+    plot_list_data_values$comment_df   <- wide$comment_df
+    plot_list_data_values$peaks_df     <- wide$peaks_df
+    plot_list_data_values$peak_mt_df   <- wide$peak_mt_df
+    plot_list_data_values$peak_area_df <- wide$peak_area_df
+    plot_list_data_values$mi_df        <- wide$mi_df
+    plot_list_data_values$file_name    <- file_name
+    
+    run_metadata$plot_list    <- plot_list
+    run_metadata$comment_df   <- wide$comment_df
+    run_metadata$peaks_df     <- wide$peaks_df
+    run_metadata$peak_mt_df   <- wide$peak_mt_df
+    run_metadata$peak_area_df <- wide$peak_area_df
+    run_metadata$mi_df        <- wide$mi_df
+    run_metadata$file_name    <- input$file_selector
+    
+    cat("Loaded from database (on connection):", file_name,
+        "| metabolites:", length(plot_list), "\n")
+    
+    #Update annotation table rendering with new data
+    plot_render_trigger(plot_render_trigger() + 1)
+  })
+  
   
   #####4.3 Render and display plots and annotation information#####
   
@@ -3117,22 +3270,40 @@ server <- function(input, output, session){
     data.frame(Plot = filtered_plot_names())
   }, selection = 'single')
 
-  #Render the selected plot
+  
+  #Render and construct plot on demand from SQL databse data
   output$selected_plot <- renderPlotly({
-    req(input$plot_table_rows_selected)
-    selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
-    plot <- plotly_data()[[selected_plot_name]]
+    plot_render_trigger()
+    req(input$plot_table_rows_selected, db_con())
+    con       <- db_con()
+    folder    <- main_folder()
+    file_name <- sub("\\.mz5$", "", input$file_selector)
     
-    if (is.null(plot)) {
-      plotly_empty()
-    } else {
-      plot %>%
-        layout(dragmode = "zoom") %>%
-        config(modeBarButtonsToAdd = list("drawrect")) %>%
-        event_register("plotly_click") %>%
-        event_register("plotly_relayout")
-    }
+    selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
+    metabolite         <- sub(paste0("^", file_name, "_"), "", selected_plot_name)
+    
+    plot_data <- tryCatch(
+      read_plot_data_from_db(con, folder, file_name, metabolite),
+      error = function(e) NULL
+    )
+    req(!is.null(plot_data))
+    
+    plot <- plot_function_plotly(
+      eie_data         = plot_data$eie_data,
+      annotation_data  = plot_data$annotation_data,
+      integration_data = plot_data$integration_data,
+      label_data       = plot_data$label_data,
+      x_axis_data      = plot_data$x_axis_data,
+      y_axis_data      = plot_data$y_axis_data
+    )
+    
+    plot %>%
+      layout(dragmode = "zoom") %>%
+      config(modeBarButtonsToAdd = list("drawrect")) %>%
+      event_register("plotly_click") %>%
+      event_register("plotly_relayout")
   })
+  
   
   
   ######4.3.2 Functions for dealing with moveable lines on plotlyplots######
@@ -3231,25 +3402,28 @@ server <- function(input, output, session){
 
   ######4.3.3 Render the annotation data table associated with selecetd plot######
   output$peak_info_table <- DT::renderDataTable({
-    req(input$plot_table_rows_selected)
+    plot_render_trigger()
+    req(input$plot_table_rows_selected, db_con())
+    con       <- db_con()
+    file_name <- sub("\\.mz5$", "", input$file_selector)
+    
+    #Extract metabolite name
     selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
+    metabolite <- sub(paste0("^", file_name, "_"), "", selected_plot_name)
     
-    #Extract the base file name from the selected .mz5 file
-    base_file_name <- sub("\\.mz5$", "", input$file_selector)
+    #get annotation data for specified file and metabolite from database
+    ann <- dbGetQuery(con,
+                      "SELECT peak_number, comment, peak_apex_secs, peak_height
+     FROM annotation_data
+     WHERE file_name = ? AND metabolite = ?
+     ORDER BY peak_number",
+                      params = list(file_name, metabolite)
+    )
     
-    #Remove the base file name from the selected plot name to get the plot name
-    plotname <- sub(paste0("^", base_file_name, "_"), "", selected_plot_name)
-    
-    plot_list <- plot_list_data()$plot_list
-    
-    #Ensure the plotname exists in the plot_list
-    if (plotname %in% names(plot_list)) {
-      annotation_data <- plot_list[[plotname]]$annotation_data
-      annotation_data
-    } else {
-      data.frame()
-    }
-  }, options = list(pageLength = 13), selection = 'multiple')
+    #rename columns
+    colnames(ann) <- c("peak.number", "comment", "peak.apex.seconds", "peak.height.counts")
+    ann
+  }, options = list(pageLength = 13), selection = "multiple")
   
   
   #####4.4 Delete Peaks and Update Metadata#####
@@ -3260,15 +3434,12 @@ server <- function(input, output, session){
     req(main_folder(), input$file_selector)
     file_name <- input$file_selector
     subfolder_path <- file.path(main_folder(), "Data", file_name)
-    
-    
-    # Debug print statements for paths
+
+    #Debug print statements for paths
     print(paste("Main folder:", main_folder()))
     print(paste("File selector:", file_name))
     print(paste("Subfolder path:", subfolder_path))
-    
-    
-    
+
     #Check if the file exists before attempting to load it
     if (file.exists(file.path(subfolder_path, "plot_list_data.RData"))) {
       load(file.path(subfolder_path, "plot_list_data.RData"))
@@ -3278,51 +3449,135 @@ server <- function(input, output, session){
       return(NULL)
     }
   })
-  
-  #Define function for reloading saved .RData file
-  reload_plot_data <- function(subfolder_path) {
-    req(file.exists(file.path(subfolder_path, "plot_list_data.RData")))
-    
-    #Load the updated .RData file
-    load(file.path(subfolder_path, "plot_list_data.RData"))
-    
-    #Update the reactive values
-    plot_list_data_values$plot_list <- plot_list
-    plot_list_data_values$comment_df <- comment_df
-    plot_list_data_values$peaks_df <- peaks_df
-    plot_list_data_values$peak_mt_df <- peak_mt_df
-    plot_list_data_values$peak_area_df <- peak_area_df
-    plot_list_data_values$mi_df <- mi_df
-    
-    #Ensure run_metadata also updates to reflect the changes
-    run_metadata$plot_list <- plot_list
-    run_metadata$comment_df <- comment_df
-    run_metadata$peaks_df <- peaks_df
-    run_metadata$peak_mt_df <- peak_mt_df
-    run_metadata$peak_area_df <- peak_area_df
-    run_metadata$mi_df <- mi_df
-  }
-  
-  #Define function for saving individual plots
+
+  #Function for saving and updating raw data aftyer any edit to a plot. Writes edited data for a single metabolite into the SQL database and then rerenders plot with new data. Also keeps writing .Rdata as a backup.
   save_plot_data <- function(plotname) {
+    req(db_con())
+    con       <- db_con()
+    file_name <- plot_list_data_values$file_name
+    folder    <- main_folder()
     
-    subfolder_path <- file.path(input$results_folder, "Data", run_metadata$file_name)
-    if (!dir.exists(subfolder_path)) {
-      dir.create(subfolder_path, recursive = TRUE)
+    #Update existing annotation data
+    ann <- plot_list_data_values$plot_list[[plotname]]$annotation_data
+    dbExecute(con,
+              "DELETE FROM annotation_data WHERE file_name = ? AND metabolite = ?",
+              params = list(file_name, plotname)
+    )
+    ann_db <- data.frame(
+      file_name      = file_name,
+      metabolite     = plotname,
+      peak_number    = ann$peak.number,
+      comment        = as.character(ann$comment),
+      peak_apex_secs = ann$peak.apex.seconds,
+      peak_height    = ann$peak.height.counts,
+      stringsAsFactors = FALSE
+    )
+    dbAppendTable(con, "annotation_data", ann_db)
+    
+    #Update integration data
+    intg <- plot_list_data_values$plot_list[[plotname]]$integration_data
+    dbExecute(con,
+              "DELETE FROM integration_data WHERE file_name = ? AND metabolite = ?",
+              params = list(file_name, plotname)
+    )
+    if (!is.null(intg) && nrow(intg) > 0) {
+      intg$peak.number <- as.numeric(as.character(intg$peak.number))
+      intg_db <- data.frame(
+        file_name   = file_name,
+        metabolite  = plotname,
+        peak_number = intg$peak.number,
+        mt_seconds  = intg$mt.seconds,
+        intensity   = intg$intensity,
+        baseline    = intg$baseline,
+        stringsAsFactors = FALSE
+      )
+      dbAppendTable(con, "integration_data", intg_db)
     }
     
-    plot_list <- plot_list_data_values$plot_list
-    comment_df <- plot_list_data_values$comment_df
-    peaks_df <- plot_list_data_values$peaks_df
-    peak_mt_df <- plot_list_data_values$peak_mt_df
+    #Update peaks_df
+    peaks_df  <- plot_list_data_values$peaks_df
+    num_peaks <- nrow(peaks_df)
+    dbExecute(con,
+              "DELETE FROM peaks_df WHERE file_name = ? AND metabolite = ?",
+              params = list(file_name, plotname)
+    )
+    peaks_db <- data.frame(
+      file_name       = file_name,
+      metabolite      = plotname,
+      peak_number     = 1:num_peaks,
+      start_seconds   = suppressWarnings(as.numeric(safe_col(peaks_df, paste0(plotname, ".start.seconds")))),
+      apex_seconds    = suppressWarnings(as.numeric(safe_col(peaks_df, paste0(plotname, ".apex.seconds")))),
+      end_seconds     = suppressWarnings(as.numeric(safe_col(peaks_df, paste0(plotname, ".end.seconds")))),
+      start_intensity = suppressWarnings(as.numeric(safe_col(peaks_df, paste0(plotname, ".start_intensity")))),
+      apex_intensity  = suppressWarnings(as.numeric(safe_col(peaks_df, paste0(plotname, ".apex_intensity")))),
+      end_intensity   = suppressWarnings(as.numeric(safe_col(peaks_df, paste0(plotname, ".end_intensity")))),
+      peak_area       = as.character(safe_col(peaks_df, paste0(plotname, ".peak.area"))),
+      stringsAsFactors = FALSE
+    )
+    dbAppendTable(con, "peaks_df", peaks_db)
+    
+    #Update peak area entries
     peak_area_df <- plot_list_data_values$peak_area_df
-    mi_df <- plot_list_data_values$mi_df
+    dbExecute(con,"DELETE FROM peak_area_df WHERE file_name = ? AND metabolite = ?",params = list(file_name, plotname))
     
-    save(plot_list, comment_df, peaks_df, peak_mt_df, mi_df, peak_area_df, file = file.path(subfolder_path, "plot_list_data.RData"))
+    area_db <- data.frame(
+      file_name   = file_name,
+      peak_number = 1:num_peaks,
+      metabolite  = plotname,
+      peak_area   = as.character(peak_area_df[, plotname]),
+      stringsAsFactors = FALSE
+    )
+    dbAppendTable(con, "peak_area_df", area_db)
     
-    #Reload data
-    reload_plot_data(subfolder_path)
+    #Record data edit in edit_log trail.
+    log_edit(con, file_name, plotname, "save")
+    
+    #Write and update .Rdata in the datafolder as backup
+    subfolder_path <- file.path(folder, "Data", paste0(file_name, ".mz5"))
+    if (dir.exists(subfolder_path)) {
+      plot_list    <- plot_list_data_values$plot_list
+      comment_df   <- plot_list_data_values$comment_df
+      peaks_df     <- plot_list_data_values$peaks_df
+      peak_mt_df   <- plot_list_data_values$peak_mt_df
+      peak_area_df <- plot_list_data_values$peak_area_df
+      mi_df        <- plot_list_data_values$mi_df
+      save(plot_list, comment_df, peaks_df, peak_mt_df, mi_df, peak_area_df,
+           file = file.path(subfolder_path, "plot_list_data.RData"))
+    }
+    
+    #Update reactive values with new metabolite data.
+    updated_plot_data <- tryCatch(
+      read_plot_data_from_db(con, folder, file_name, plotname),
+      error = function(e) NULL)
+    if (!is.null(updated_plot_data)) {
+      plot_list_data_values$plot_list[[plotname]] <- updated_plot_data
+      run_metadata$plot_list[[plotname]]          <- updated_plot_data
+    }
+    
+    #Force plot and annotation table to re-render
+    plot_render_trigger(plot_render_trigger() + 1)
   }
+  
+  
+  #reload_plot_data: now just re-reads from database into reactive values. Kept for backward compatibility with any code that calls it
+  reload_plot_data <- function(subfolder_path = NULL) {
+    req(db_con())
+    con       <- db_con()
+    folder    <- main_folder()
+    file_name <- plot_list_data_values$file_name
+    req(!is.null(file_name))
+    
+    wide <- load_wide_data_from_db(con, file_name)
+    plot_list_data_values$comment_df   <- wide$comment_df
+    plot_list_data_values$peaks_df     <- wide$peaks_df
+    plot_list_data_values$peak_mt_df   <- wide$peak_mt_df
+    plot_list_data_values$peak_area_df <- wide$peak_area_df
+    run_metadata$comment_df            <- wide$comment_df
+    run_metadata$peaks_df              <- wide$peaks_df
+    run_metadata$peak_mt_df            <- wide$peak_mt_df
+    run_metadata$peak_area_df          <- wide$peak_area_df
+  }
+  
   
   
   #Intiialize reactive values 
@@ -3397,15 +3652,6 @@ server <- function(input, output, session){
       
       #Update the reactive plot_list_data
       plot_list_data_values$plot_list <- plot_list
-    }
-    
-    #Update peak_area_df using comment_df
-    for (i in 1:nrow(plot_list_data_values$peak_area_df)) {
-      plot_list_data_values$peak_area_df[i, 3:ncol(plot_list_data_values$peak_area_df)] <- ifelse(
-        plot_list_data_values$comment_df[i, ] == "",
-        plot_list_data_values$peak_area_df[i, 3:ncol(plot_list_data_values$peak_area_df)],
-        plot_list_data_values$comment_df[i, ]
-      )
     }
     
     #Save changes 
@@ -3487,15 +3733,6 @@ server <- function(input, output, session){
       #Update the reactive plot_list_data
       plot_list_data_values$plot_list <- plot_list
       
-      #Update peak_area_df using comment_df
-      for (i in 1:nrow(plot_list_data_values$peak_area_df)) {
-        plot_list_data_values$peak_area_df[i, 3:ncol(plot_list_data_values$peak_area_df)] <- ifelse(
-          plot_list_data_values$comment_df[i, ] == "",
-          plot_list_data_values$peak_area_df[i, 3:ncol(plot_list_data_values$peak_area_df)],
-          plot_list_data_values$comment_df[i, ]
-        )
-      }
-      
       #Save changes
       save_plot_data(plotname)
       
@@ -3569,15 +3806,6 @@ server <- function(input, output, session){
       
       #Update the reactive plot_list_data
       plot_list_data_values$plot_list <- plot_list
-      
-      #Update peak_area_df using comment_df
-      for (i in 1:nrow(plot_list_data_values$peak_area_df)) {
-        plot_list_data_values$peak_area_df[i, 3:ncol(plot_list_data_values$peak_area_df)] <- ifelse(
-          plot_list_data_values$comment_df[i, ] == "",
-          plot_list_data_values$peak_area_df[i, 3:ncol(plot_list_data_values$peak_area_df)],
-          plot_list_data_values$comment_df[i, ]
-        )
-      }
       
       #Save changes
       save_plot_data(plotname)
@@ -3761,30 +3989,31 @@ server <- function(input, output, session){
    }
   
    ######4.6.2 Defining functions for modifying saved peak area information######
-   #Function for redoing the Metabolite Peak Areas.csv
    regenerate_metabolite_peak_areas <- function() {
+     req(db_con())
+     con       <- db_con()
+     file_name <- plot_list_data_values$file_name
      
-     #Initialize an empty list to store peak_area_df data frames
-     temp_area_df <- list()
+     #Pull all peak areas from database across all files in this Results folder
+     area_long <- dbGetQuery(con,
+                             "SELECT file_name, peak_number, metabolite, peak_area FROM peak_area_df
+       ORDER BY file_name, peak_number"
+     )
      
-     #Get the list of all folders in the Data directory
-     data_subfolders <- list.dirs(path = file.path(main_folder(), "Data"), full.names = TRUE, recursive = FALSE)
+     #Pivot to wide format matching original CSV structure
+     area_wide <- tidyr::pivot_wider(
+       area_long,
+       names_from  = "metabolite",
+       values_from = "peak_area"
+     )
+     area_wide <- cbind(
+       "file.name"   = area_wide$file_name,
+       "peak.number" = area_wide$peak_number,
+       area_wide[, !(colnames(area_wide) %in% c("file_name", "peak_number"))]
+     )
      
-     #Loop through each subfolder to load peak_area_df
-     for (subfolder_path in data_subfolders) {
-       if (file.exists(file.path(subfolder_path, "plot_list_data.RData"))) {
-         load(file.path(subfolder_path, "plot_list_data.RData"))
-
-         temp_area_df[[basename(subfolder_path)]] <- peak_area_df
-       }
-     }
-     
-     #Combine all dataframes into one
-     peak_area_report <- do.call(rbind, temp_area_df)
-     
-     #Save peak areas to .csv file
-     write.csv(peak_area_report,
-               file = file.path(input$results_folder, "Metabolite Peak Areas.csv"),
+     write.csv(area_wide,
+               file      = file.path(main_folder(), "Metabolite Peak Areas.csv"),
                row.names = FALSE)
    }
    
@@ -4070,8 +4299,6 @@ server <- function(input, output, session){
     runjs(js_script)
     
     #Apply plotting and area functions
-    regenerate_plots()
-    print("Finished applying plotting function")
     regenerate_metabolite_peak_areas()
     print("Finished applying peak area function")
     
@@ -4106,10 +4333,7 @@ server <- function(input, output, session){
       )
     ))
   }
-  
-  
-  
-  
+
   
   ######4.7.2 Integration function######
   manual_peak_integration <- function(peak_number){
@@ -4310,7 +4534,6 @@ server <- function(input, output, session){
   #Function for adjusting individual baseline
   adjust_individual_baseline <- function(peak_index = NULL){
     
-    
     #define variables required for plotting 
     selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
     base_file_name <- sub("\\.mz5$", "", input$file_selector)
@@ -4321,7 +4544,7 @@ server <- function(input, output, session){
     
     #Use clicked Y value as the new baseline
     new_baseline <- session$userData$clicked_position$y
-    print(paste("New baseline:", new_baseline))  #Debugging
+    print(paste("New baseline:", new_baseline))
     
     #load plot data
     plot_data <- plot_list_data_values$plot_list[[plotname]]
@@ -4526,10 +4749,7 @@ server <- function(input, output, session){
       #Adjust baseline and update area
       baseline_adjustment <- (right_boundary - left_boundary) * plot_baseline
       area <- area - baseline_adjustment
-      
-      #Update peak dataframe with new area information 
-      #peaks_df[peak_index, paste0(plotname, ".start_intensity")] <- min(intensity)
-      #peaks_df[peak_index, paste0(plotname, ".end_intensity")] <- min(intensity)
+
       peaks_df[peak_index, paste0(plotname, ".peak.area")] <- area
       peak_area_df[peak_index, paste0(plotname)] <- area
       
@@ -4569,15 +4789,33 @@ server <- function(input, output, session){
   
   #Function for rendering the selected plot in the modal
   output$adjust_baseline_plot <- renderPlotly({
-    req(input$plot_table_rows_selected)
+    req(input$plot_table_rows_selected, db_con())
+    con       <- db_con()
+    folder    <- main_folder()
+    file_name <- sub("\\.mz5$", "", input$file_selector)
     selected_plot_name <- filtered_plot_names()[input$plot_table_rows_selected]
-    plot <- plotly_data()[[selected_plot_name]]
-    if (is.null(plot)) {
-      plotly_empty()
-    } else {
-      plot %>%
-        layout(dragmode = "select")
-      event_register(plot, "plotly_click")}})
+    metabolite <- sub(paste0("^", file_name, "_"), "", selected_plot_name)
+    
+    plot_data <- tryCatch(
+      read_plot_data_from_db(con, folder, file_name, metabolite),
+      error = function(e) NULL
+    )
+    req(!is.null(plot_data))
+    
+    #generate plot
+    plot <- plot_function_plotly(
+      eie_data         = plot_data$eie_data,
+      annotation_data  = plot_data$annotation_data,
+      integration_data = plot_data$integration_data,
+      label_data       = plot_data$label_data,
+      x_axis_data      = plot_data$x_axis_data,
+      y_axis_data      = plot_data$y_axis_data
+    )
+    
+    plot %>%
+      layout(dragmode = "select") %>%
+      event_register("plotly_click")
+  })
   
   #Observer for handling click data events on the plotly plot rendered in the modal to acquire the new baseline
   observeEvent(event_data("plotly_click"), {
@@ -4620,36 +4858,56 @@ server <- function(input, output, session){
 
   
   #Observe selected plots and render a combined subplot of these functions to zoom in on peaks
-  observe({
-    #Get selected indices from each table
-    sel1 <- input$plottable1_rows_selected
-    sel2 <- input$plottable2_rows_selected
-    sel3 <- input$plottable3_rows_selected
-    
-    #Combine and filter
-    selected_indices <- c(sel1, sel2, sel3)
-    selected_indices <- unique(na.omit(selected_indices))
-    
-    #Only proceed if 2 or more plots are selected. Generate subplot based on if 2 or 3 plots have been selected in tables.
-    if (length(selected_indices) >= 2) {
-      selected_names <- filtered_plot_names()[selected_indices]
-      plots <- lapply(selected_names, function(name) plotly_data()[[name]])
-      plots <- Filter(Negate(is.null), plots)
+    observe({
+      sel1 <- input$plottable1_rows_selected
+      sel2 <- input$plottable2_rows_selected
+      sel3 <- input$plottable3_rows_selected
       
-      if (length(plots) == length(selected_names)) {
-        base_file_name <- sub("\\.mz5$", "", input$file_selector)
-        cleaned_names <- sub(paste0("^", base_file_name, "_"), "", selected_names)
-        combined_title <- paste("EIE of", paste(cleaned_names, collapse = ", "))
+      selected_indices <- unique(na.omit(c(sel1, sel2, sel3)))
+      
+      #generate combined plot depending on if 2 OR 3 plots are selected.
+      if (length(selected_indices) >= 2) {
+        req(db_con())
+        con            <- db_con()
+        folder         <- main_folder()
+        file_name      <- sub("\\.mz5$", "", input$file_selector)
+        selected_names <- filtered_plot_names()[selected_indices]
         
-        #Combine plots into one plot.
-        output$combined_plot <- renderPlotly({
-          subplot(plots, nrows = length(plots), shareX = TRUE, titleX = TRUE, titleY = TRUE) %>%
-            layout(title = combined_title)
+        #Generate each plot from SQL database on demand
+        plots <- lapply(selected_names, function(name) {
+          metabolite <- sub(paste0("^", file_name, "_"), "", name)
+          plot_data  <- tryCatch(
+            read_plot_data_from_db(con, folder, file_name, metabolite),
+            error = function(e) NULL
+          )
+          if (is.null(plot_data)) return(NULL)
+          plot_function_plotly(
+            eie_data         = plot_data$eie_data,
+            annotation_data  = plot_data$annotation_data,
+            integration_data = plot_data$integration_data,
+            label_data       = plot_data$label_data,
+            x_axis_data      = plot_data$x_axis_data,
+            y_axis_data      = plot_data$y_axis_data
+          )
         })
+        
+        #Remove any plots that failed to load
+        plots <- Filter(Negate(is.null), plots)
+        
+        #render if successful and combine plot names into one title 
+        if (length(plots) == length(selected_names)) {
+          cleaned_names  <- sub(paste0("^", file_name, "_"), "", selected_names)
+          combined_title <- paste("EIE of", paste(cleaned_names, collapse = ", "))
+          
+          #combine individual plots into stacked subplots with shared x axis
+          output$combined_plot <- renderPlotly({
+            subplot(plots, nrows = length(plots), 
+                    shareX = TRUE, titleX = TRUE, titleY = TRUE) %>%
+              layout(title = combined_title)
+          })
+        }
       }
-    }
-  })
-  
+    })    
   
   #####4.9 Marking Interferences#####
   observeEvent(input$interferences, {
@@ -4702,17 +4960,7 @@ server <- function(input, output, session){
       #Update the reactive plot_list_data
       plot_list_data_values$plot_list <- plot_list
     }
-    
-    #Update peak_area_df using comment_df
-    for (i in 1:nrow(plot_list_data_values$peak_area_df)) {
-      plot_list_data_values$peak_area_df[i, 3:ncol(plot_list_data_values$peak_area_df)] <- ifelse(
-        plot_list_data_values$comment_df[i, ] == "",
-        plot_list_data_values$peak_area_df[i, 3:ncol(plot_list_data_values$peak_area_df)],
-        plot_list_data_values$comment_df[i, ]
-      )
-    }
-    
-    #Save changes 
+
     save_plot_data(plotname)
     
     #Reload the updated data
@@ -5362,7 +5610,7 @@ server <- function(input, output, session){
   
   #Load Batch Corr Order
   batch_order <- reactive({
-    req(input$batch_corr_order)  # Ensure file is uploaded
+    req(input$batch_corr_order)  #Ensure file is uploaded
     read.csv(input$batch_corr_order$datapath, stringsAsFactors = FALSE)
   })
   
@@ -5400,7 +5648,7 @@ server <- function(input, output, session){
     )
     strategies <- rep(c("Q", "S"), each = length(conditions))
     
-    # Perform batch correction ONLY on numeric metabolite columns
+    #Perform batch correction ONLY on numeric metabolite columns
     print("Test 1")
     BatchCorrResults <- lapply(seq(along = experiments), function(ii)
       apply(data_BatchCorr[ , metCols], 2, doBC,
@@ -5413,15 +5661,15 @@ server <- function(input, output, session){
     )
     print("Test 2")
     
-    # Naming list items with the type of correction
+    #Naming list items with the type of correction
     names(BatchCorrResults) <- experiments
     
-    # Anti-log of corrected results
+    #Anti-log of corrected results
     BatchCorrResultsAntilog <- BatchCorrResults
     BatchCorrResultsAntilog$Q <- 10^(BatchCorrResultsAntilog$Q)
     BatchCorrResultsAntilog$S <- 10^(BatchCorrResultsAntilog$S)
     
-    # Write corrected results to CSV files
+    #Write corrected results to CSV files
     write.csv(BatchCorrResults,        file = "BatchCorrResults.csv")
     write.csv(BatchCorrResultsAntilog, file = "BatchCorrResultsAntilog.csv")
     

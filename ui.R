@@ -63,12 +63,7 @@ ui <- dashboardPage(
         .selectize-dropdown-content {
         max-height: 200px;
         overflow-y: auto;
-      }
-      "))
-    ),useShinyjs(),
-    use_waiter(),
-    tags$head(
-    tags$style(HTML("
+        }
       .flower-spinner .dots-container .bigger-dot {
         background-color: black;
       }
@@ -79,29 +74,56 @@ ui <- dashboardPage(
       .flower-spinner .dots-container::after {
         background-color: black;
       }
-    "))
-  ),
-  
+      .box.box-primary {
+        border-top: 3px solid #1999CC;
+        border-radius: 4px;
+        margin-bottom: 8px;
+      }
+      
+      .box-header {
+        cursor: pointer;
+        padding: 10px 15px;
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+      }
+      
+      .box-title {
+        font-size: 15px;
+        font-weight: normal;
+        font-family: inherit;
+        color: #FFFFFF;
+      }
+      
+      .box {
+        margin-bottom: 6px !important;
+      }
+      
+      .box-tools .btn {
+        color: #1999CC;
+      }
+      "))
+    ),useShinyjs(),
+    use_waiter(),
+
     tabItems(
-      # About tab content
+      #About tab content
       tabItem(
         tabName = "about",
         fluidPage(
           column(width = 12, 
                  h3("Documentation"),
-                 box(
-                   title = "Documentation Overview", 
-                   status = "primary", 
-                   solidHeader = TRUE,
-                   width = NULL,
-                   #Create collapsible tabs that are populated by the content of the .md files in the Documentation folder
-                   bsCollapse(id = "collapseExample", open = "README",
-                              bsCollapsePanel("Disclaimer", uiOutput("disclaimerContent")),
-                              bsCollapsePanel("README", uiOutput("readmeContent")),
-                              bsCollapsePanel("Updates", uiOutput("updatesContent")),
-                              bsCollapsePanel("License", uiOutput("licenseContent"))
-                    )
-                 )
+                 box(title = "Disclaimer", status = "primary", solidHeader = TRUE,
+                     width = NULL, collapsible = TRUE, collapsed = TRUE,
+                     uiOutput("disclaimerContent")),
+                 box(title = "README", status = "primary", solidHeader = TRUE,
+                     width = NULL, collapsible = TRUE, collapsed = FALSE,
+                     uiOutput("readmeContent")),
+                 box(title = "Updates", status = "primary", solidHeader = TRUE,
+                     width = NULL, collapsible = TRUE, collapsed = TRUE,
+                     uiOutput("updatesContent")),
+                 box(title = "License", status = "primary", solidHeader = TRUE,
+                     width = NULL, collapsible = TRUE, collapsed = TRUE,
+                     uiOutput("licenseContent"))
               )
             )
         ),

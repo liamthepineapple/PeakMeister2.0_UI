@@ -3361,6 +3361,14 @@ server <- function(input, output, session){
     }
   })
   
+  #Reset zoom when switching metabolites
+  observeEvent(input$plot_table_rows_selected, {
+    zoom_state$xmin <- NULL
+    zoom_state$xmax <- NULL
+    zoom_state$ymin <- NULL
+    zoom_state$ymax <- NULL
+  })
+  
   #Deal with events occuring on the plot (drawing boxes)
   observeEvent(event_data("plotly_relayout"), {
     relayout_data <- event_data("plotly_relayout")

@@ -2884,6 +2884,7 @@ server <- function(input, output, session){
         progress_callback(i, total, file_name)
       }
       
+      
       #Check if file is already in database and skip if need be.
       already <- dbGetQuery(con,
                             "SELECT COUNT(*) FROM plot_axis_data WHERE file_name = ?",
@@ -3367,7 +3368,7 @@ server <- function(input, output, session){
     zoom_state$xmax <- NULL
     zoom_state$ymin <- NULL
     zoom_state$ymax <- NULL
-  })
+  }) 
   
   #Deal with events occuring on the plot (drawing boxes)
   observeEvent(event_data("plotly_relayout"), {
@@ -3682,6 +3683,10 @@ server <- function(input, output, session){
           plot_list_data_values$comment_df[peak_number, plotname] <- "NPD"
         }
         
+        if (plotname %in% colnames(plot_list_data_values$peak_area_df)) {
+          plot_list_data_values$peak_area_df[peak_number, plotname] <- "NPD"
+        }
+        
         #Remove all integration_data associated with the relevant peak number so regenerated plots will update with the deleted peaks once regenerated
         integration_data <- integration_data[integration_data$peak.number != peak_number, ]
       }
@@ -3763,6 +3768,10 @@ server <- function(input, output, session){
         plot_list_data_values$comment_df[-c(first_peak, last_peak), plotname] <- "NPD"
       }
       
+      if (plotname %in% colnames(plot_list_data_values$peak_area_df)) {
+        plot_list_data_values$peak_area_df[-c(first_peak, last_peak), plotname] <- "NPD"
+      }
+      
       #Remove all integration_data associated with peaks except the first and last
       integration_data <- integration_data[integration_data$peak.number %in% c(first_peak, last_peak), ]
       
@@ -3835,6 +3844,10 @@ server <- function(input, output, session){
       #Update comment_df so peak areas can be recalculated/reintegrated later on
       if (plotname %in% colnames(plot_list_data_values$comment_df)) {
         plot_list_data_values$comment_df[, plotname] <- "NPD"
+      }
+      
+      if (plotname %in% colnames(plot_list_data_values$peak_area_df)) {
+        plot_list_data_values$peak_area_df[, plotname] <- "NPD"
       }
       
       #Remove all integration_data
@@ -4272,9 +4285,38 @@ server <- function(input, output, session){
        }
      }
    }
+   
+   ######4.6.5 Function for Regenerating Migration time file#####
+   regenerate_metabolite_migration_times <- function() {
+     req(db_con())
+     con <- db_con()
+     
+     # Pull all apex times from annotation_data across all files
+     mt_long <- dbGetQuery(con,
+                           "SELECT file_name, peak_number, metabolite, peak_apex_secs
+     FROM annotation_data
+     ORDER BY file_name, peak_number"
+     )
+     
+     # Pivot to wide format
+     mt_wide <- tidyr::pivot_wider(
+       mt_long,
+       names_from  = "metabolite",
+       values_from = "peak_apex_secs"
+     )
+     mt_wide <- cbind(
+       "file.name"   = mt_wide$file_name,
+       "peak.number" = mt_wide$peak_number,
+       mt_wide[, !(colnames(mt_wide) %in% c("file_name", "peak_number"))]
+     )
+     
+     write.csv(mt_wide,
+               file      = file.path(main_folder(), "Metabolite Migration Times.csv"),
+               row.names = FALSE)
+   }
 
 
-   ######4.6.5 Applying functions######
+   ######4.6.6 Applying functions######
 #Loading messages for loading screen
    loading_messages <- c(
      "Training squirrels to redraw plots...", 
@@ -4308,9 +4350,30 @@ server <- function(input, output, session){
      "Discovering new ways to make you wait",
      "Try holding your breath through this"
    )
+   
+   #Modal for other button that creates modal with three other buttons
+   observeEvent(input$other_options, {
+     showModal(modalDialog(
+       title = "Additional Options",
+       h5("Select an action:"),
+       br(),
+       fluidRow(
+         column(12,
+                actionButton("regenerateplots", "Regenerate Changed Plots"),
+                actionButton("rebuild_peak_areas_modal", "Rebuild Peak Area CSV"),
+                actionButton("rebuild_mig_times_modal", "Rebuild Peak Migration Time CSV")
+         )
+       ),
+       footer = modalButton("Close"),
+       easyClose = TRUE
+     ))
+   })
 
   #Action button for regenerating plots
   observeEvent(input$regenerateplots, {
+    
+    #remove modal
+    removeModal()
     
     #Initialize waiter loading screen
     initial_message <- sample(loading_messages, 1)
@@ -4360,6 +4423,27 @@ server <- function(input, output, session){
     data.frame(Modified_Plots = modified_peak_plots$names)
   }, selection = 'single')
   
+  #Rebuild peak area csv
+  observeEvent(input$rebuild_peak_areas_modal, {
+    removeModal()
+    tryCatch({
+      regenerate_metabolite_peak_areas()
+      showNotification("Metabolite Peak Areas CSV rebuilt successfully!", type = "message")
+    }, error = function(e) {
+      showNotification(paste("Error rebuilding peak areas:", e$message), type = "error")
+    })
+  })
+  
+  #Rebuild migration CSV
+  observeEvent(input$rebuild_mig_times_modal, {
+    removeModal()
+    tryCatch({
+      regenerate_metabolite_migration_times()
+      showNotification("Metabolite Migration Times CSV rebuilt successfully!", type = "message")
+    }, error = function(e) {
+      showNotification(paste("Error rebuilding migration times:", e$message), type = "error")
+    })
+  })
   
   #####4.7 Adjusting integration and adding peaks#####
   ######4.7.1 Function for manual peak number input######

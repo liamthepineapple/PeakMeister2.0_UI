@@ -3180,6 +3180,19 @@ server <- function(input, output, session){
     folder    <- main_folder()
     file_name <- sub("\\.mz5$", "", input$file_selector)
 
+    #Checkto make sure file exists
+    file_exists_in_db <- tryCatch({
+      count <- dbGetQuery(con,
+                          "SELECT COUNT(*) FROM plot_axis_data WHERE file_name = ?",
+                          params = list(file_name))[[1]]
+      count > 0
+    }, error = function(e) FALSE)
+    
+    if (!file_exists_in_db) {
+      cat("File not yet in database, skipping load:", file_name, "\n")
+      return()
+    }
+    
     #Load plot_list (eie from .RData, rest from database)
     plot_list <- tryCatch(
       load_plot_list_from_db(con, folder, file_name),
@@ -3223,6 +3236,19 @@ server <- function(input, output, session){
     con       <- db_con()
     folder    <- main_folder()
     file_name <- sub("\\.mz5$", "", input$file_selector)
+    
+    #Check for datafile
+    file_exists_in_db <- tryCatch({
+      count <- dbGetQuery(con,
+                          "SELECT COUNT(*) FROM plot_axis_data WHERE file_name = ?",
+                          params = list(file_name))[[1]]
+      count > 0
+    }, error = function(e) FALSE)
+    
+    if (!file_exists_in_db) {
+      cat("File not yet in database, skipping load:", file_name, "\n")
+      return()
+    }
     
     #Load plot list eie_data and editable ddata from database
     plot_list <- tryCatch(
